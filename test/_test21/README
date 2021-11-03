@@ -1,0 +1,5 @@
+Origin:
+
+    https://gitlab.com/alanpearce/dotfiles/blob/master/zsh/.config/zsh/.zshrc
+
+revision 702cd2fd. Real-world test with many zinit invocations, no ice mods, if commands.

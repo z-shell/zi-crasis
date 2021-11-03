@@ -1,0 +1,6 @@
+Origin:
+
+    https://github.com/yn/dotfiles.zsh/blob/master/.zshrc
+
+revision 1fffe1e. The test revealed a problem with spaces after a command, i.e.
+before newline.

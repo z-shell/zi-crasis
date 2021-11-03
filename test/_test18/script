@@ -1,0 +1,16 @@
+if (( DBG )); then
+    -zcrasis_action_reload || { echo "Failed to parse zshrc" | tee zshrc.test; return 0; }
+else
+    -zcrasis_action_reload >/dev/null || { echo "Failed to parse zshrc" | tee zshrc.test; return 0; }
+fi
+
+ZUI[my_tfield3_data]="psprint/zsh-select"
+-zcrasis_action_add_plugin
+ZUI[my_tfield3_data]="OMZ::lib/git.zsh"
+-zcrasis_action_add_snippet
+
+-zcrasis_action_move_up 2 2
+-zcrasis_action_move_up 2 3
+-zcrasis_action_move_up 2 6
+
+-zcrasis_action_save

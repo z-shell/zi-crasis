@@ -1,0 +1,8 @@
+Origin:
+
+    https://github.com/zanshin/dotfiles/blob/master/zsh/zsh_hooks.zsh
+
+revision db5d8de. Added zinit commands and compinit. The zshrc only
+contains function definitions. The test revealed problem with not
+treating functions as single objects, and a suspicious white space
+keeping.

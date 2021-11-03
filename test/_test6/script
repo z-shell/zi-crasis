@@ -1,0 +1,12 @@
+if ! is-at-least 5.0.7 || [[ "$ZSH_VERSION" = "5.4.2-dev-0" ]] || is-at-least 5.5; then
+    echo "Skipping test (Zsh $ZSH_VERSION correctly parses the zshrc)."
+    command touch skip
+    return 0
+fi
+if (( DBG )); then
+    -zcrasis_action_reload || { echo "Failed to parse zshrc" | tee zshrc.test; return 0; }
+else
+    -zcrasis_action_reload >/dev/null || { echo "Failed to parse zshrc" | tee zshrc.test; return 0; }
+fi
+-zcrasis_action_move_down 2 1
+-zcrasis_action_save

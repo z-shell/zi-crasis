@@ -1,0 +1,7 @@
+Origin:
+
+    https://github.com/paulirish/dotfiles/blob/master/.zshrc
+
+revision a2a01ed. Added zinit commands and compinit. The test revealed
+incorrect pre_block_end assignment in case when its initial value is 0
+(meaning that zinit is the first command in zshrc).

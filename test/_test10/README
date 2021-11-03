@@ -1,0 +1,9 @@
+Origin:
+
+    https://github.com/davidosomething/dotfiles/blob/master/zsh/.zshrc
+    https://github.com/davidosomething/dotfiles/blob/master/zsh/zinit.zsh
+
+but highly shortened when narrowing to find bugs, now basically a syntetic test
+that stresses out support for commands leading zinit in following way: "foo
+&& zinit ..." and similar, especially at the beginning of zinit block, and
+even more at the beginning of whole zshrc.

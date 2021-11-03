@@ -1,0 +1,63 @@
+# Keep 1000 lines of history within the shell and save it to ~/.zsh_history:
+HISTSIZE=1000
+SAVEHIST=1000
+HISTFILE=$HOME/.zsh_history
+
+#Set Aliases
+if [ -f ~/.aliases ]; then
+    source ~/.aliases
+fi
+
+#Add GPG Key
+export GPG_TTY=$(tty)
+
+# ZPlug (START)
+#source ~/.zplug/init.zsh
+#zplug load
+# ZPlug (END)
+
+# Zinit (START)
+source '/home/iboyperson/.zinit/bin/zinit.zsh'
+autoload -Uz _zinit
+(( ${+_comps} )) && _comps[zinit]=_zinit
+
+source ~/.zinit-packages
+
+#!/bin/env zsh
+
+# Libs
+# Load git lib from OMZ
+zinit snippet OMZ::lib/git.zsh
+zinit snippet OMZ::lib/completion.zsh
+# Helpful for working with colors
+#zplug "lib/spectrum", from:oh-my-zsh
+
+# Plugins
+zinit snippet OMZ::plugins/git/git.plugin.zsh
+zinit snippet OMZ::plugins/gem/gem.plugin.zsh
+zinit snippet OMZ::plugins/pip/pip.plugin.zsh
+zinit load zsh-users/zsh-completions
+zinit load zsh-users/zsh-syntax-highlighting
+zinit load valentinocossar/sublime
+
+# Theme
+zinit light iboyperson/pastel
+autoload -Uz compinit
+compinit
+# Local version for dev purposes
+#zinit light $HOME/projects/pastel
+
+zinit cdreplay -q
+
+# Zinit (END)
+
+[ -n "$TMUX" ] && export TERM=screen-256color
+
+# added by travis gem
+[ -f /home/iboyperson/.travis/travis.sh ] && source /home/iboyperson/.travis/travis.sh
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="/home/iboyperson/.sdkman"
+[[ -s "/home/iboyperson/.sdkman/bin/sdkman-init.sh" ]] && source "/home/iboyperson/.sdkman/bin/sdkman-init.sh"

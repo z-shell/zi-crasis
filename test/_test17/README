@@ -1,0 +1,8 @@
+Origin:
+
+    https://github.com/sei40kr/dotfiles/blob/master/.zshrc
+
+revision d1839c6. The test operates only on newly added plugins and snippet,
+exercising new delete operation in *update_main_cmd, however main goal is to
+test new ices contained in the original zshrc, and also one-line invocations
+of subcommand ice and plugin or snippet load.

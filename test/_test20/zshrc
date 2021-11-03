@@ -1,0 +1,54 @@
+# ZSH configuration
+
+source ~/territory/zinit/zinit.zsh
+
+##### GRML #####
+source ~/territory/grml-etc-core/etc/zsh/zshrc
+
+# Disable the ag alias.
+disable -a ag &> /dev/null
+
+[[ -z "$SSH_AUTH_SOCK" ]] && \
+	check_com keychain && eval `keychain --eval --quick --quiet`
+
+##### KEYBINDINGS #####
+
+# Use vi bindings.
+bindkey -v
+
+# jk -> Esc
+bindkey -M viins 'jk' vi-cmd-mode
+
+# Multiline editing
+bindkey '^x' push-line-or-edit
+
+# Incremental search like emacs mode
+#bindkey '^r' history-incremental-search-backward
+#bindkey '^s' history-incremental-search-forward
+
+# Beginning search with <A-p> and <A-n>
+bindkey '\ep' history-beginning-search-backward
+bindkey '\en' history-beginning-search-forward
+
+##### ALIASES #####
+
+# Alternative to `sudoedit` which only updates files after leaving the editor.
+alias Vim='sudo -E vim'
+
+# bsdtar supports more archive formats
+check_com bsdtar && alias tar=bsdtar
+
+alias cal='cal -m'
+
+alias nix-zsh='nix-shell --run zsh'
+
+##### TOOLS #####
+
+# Use ag as fzf search tool, if available.
+check_com ag && export FZF_DEFAULT_COMMAND='ag -g ""'
+
+##### ZPLUGIN #####
+
+# GitHub repositories
+zinit load zdharma/fast-syntax-highlighting
+zinit load zdharma/history-search-multi-word

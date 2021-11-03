@@ -1,0 +1,62 @@
+# -*- mode: shell-script -*-
+# vim:ft=zsh:sw=4:sts=4:et
+
+# ioutput[1] already has trailing space
+local __ice_line="${ioutput[1]}${(j: :)ioutput[2,-1]}"
+
+# Snippet in the listing
+
+w_snippet_item_long=(
+    "$num $w_up $w_down $smarker_text $w_url"
+    "$w_delete$w_disable $w_force $w_ascommand $ice_add_remove"
+    $__ice_line
+)
+
+w_snippet_item_short=(
+    "$num $w_up $w_down $smarker_text $w_url"
+)
+
+# Plugin in the listing
+
+w_plugin_item_long=(
+    "$num $w_up $w_down $pmarker_text $w_plugin"
+    "$w_delete$w_disable $w_mode $w_compile $ice_add_remove"
+    $__ice_line
+)
+
+w_plugin_item_short=(
+    "$num $w_up $w_down $pmarker_text $w_plugin"
+)
+
+# cdreplay in the listing
+
+w_cdreplay_item_long=(
+    "$num $w_up $w_down cdreplay${w_q:+ -q}"
+    "$w_delete$w_disable"
+)
+
+w_cdreplay_item_short=(
+    "$num $w_up $w_down cdreplay${w_q:+ -q}"
+)
+
+# cdclear in the listing
+
+w_cdclear_item_long=(
+    "$num $w_up $w_down cdclear${w_q:+ -q}"
+    "$w_delete$w_disable"
+)
+
+w_cdclear_item_short=(
+    "$num $w_up $w_down cdclear${w_q:+ -q}"
+)
+
+# regular command in listing
+
+w_other_item_long=(
+    "$num $w_up $w_down $text"
+    "$w_delete$w_disable"
+)
+
+w_other_item_short=(
+    "$num $w_up $w_down $text"
+)

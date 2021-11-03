@@ -1,0 +1,4 @@
+echo "Test"; test &&
+is-at-least 5.0.7 && zinit snippet --command 'https://github.com/davidosomething/git-ink/blob/master/git-ink'
+zinit snippet --command 'https://github.com/davidosomething/git-my/blob/master/git-my'
+zinit snippet --command 'https://github.com/davidosomething/git-take/blob/master/git-take'

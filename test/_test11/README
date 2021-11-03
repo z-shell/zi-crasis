@@ -1,0 +1,7 @@
+Origin:
+
+    https://github.com/Osse/dotfiles/blob/master/.zshrc
+
+revision 280d34a. Added 3 zinit commands. Normal real-world test with 2 move
+operations on commands that are mixture of zinit commands and "foo && zinit
+..." like commands.

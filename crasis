@@ -1,0 +1,2131 @@
+# -*- mode: shell-script -*-
+# vim:ft=zsh:sw=4:sts=4:et
+
+# Started from Zle or from command line
+#
+# Copyright (c) 2017 Sebastian Gniazdowski
+
+-zui_std_cleanup deserialize:"zinit-crasis"
+-zui_std_init app:"zinit-crasis" app_name:"Zinit-Crasis"
+emulate -LR zsh -o extendedglob -o typesetsilent -o warncreateglobal
+-zui_std_init2
+
+-zui_std_store_default_app_config b:text_mode off
+-zui_std_store_default_app_config b:text_select off
+-zui_std_store_default_app_config b:border 1
+-zui_std_store_default_app_config b:top_anchors 0  # no top-anchors
+
+# Already autoloaded in *.plugin.zsh, here it's for Zshelldoc
+autoload -- -zcrasis-process-buffer
+
+# Debug array, for debug view
+local -a ZCR_DEBUG_MSGS
+
+# Append message to the debug view
+-zcrasis_dbg_msg() { ZCR_DEBUG_MSGS+=( "$*" ); }
+# Append multiple messages to the debug view
+-zcrasis_dbg_msg_arr() { ZCR_DEBUG_MSGS+=( "$@" ); }
+
+ZUI[log_time_format]="[%H:%M] "
+
+# Initial debug message
+-zcrasis_dbg_msg "ZSH version: $ZSH_VERSION ($ZSH_PATCHLEVEL), machine: $CPUTYPE $VENDOR $OSTYPE, LANG: $LANG"
+if [[ ${+ZPLGM} = 1 ]]; then
+    -zcrasis_dbg_msg "Zinit version: <ZPLGVERSION>, Zinit-Crasis version: <ZCRVERSION>"
+    -zcrasis_dbg_msg "Zinit BIN_DIR: ${ZPLGM[BIN_DIR]/$HOME/~}, HOME_DIR: ${ZPLGM[HOME_DIR]/$HOME/~}, PLUGINS_DIR: ${ZPLGM[PLUGINS_DIR]/$HOME/~}, COMPLETIONS_DIR: ${ZPLGM[COMPLETIONS_DIR]/$HOME/~}"
+else
+    -zcrasis_dbg_msg "${ZUI[RED]}Zinit not loaded${ZUI[FMT_END]}"
+fi
+
+-zcrasis_dbg_msg ""
+-zcrasis_dbg_msg_arr "Active plugins:" "${ZPLG_REGISTERED_PLUGINS[@]/(#s)/ }"
+-zcrasis_dbg_msg ""
+
+#
+# CONSTANTS
+#
+
+local -A TOKEN_TYPES
+
+TOKEN_TYPES=(
+
+  # Precommand
+
+  'builtin'     1
+  'command'     1
+  'exec'        1
+  'nocorrect'   1
+  'noglob'      1
+  'pkexec'      1
+
+  # Control flow
+  # Tokens that at "command position" are followed by a command
+
+  $'\x7b'   2 # {
+  $'\x28'   2 # (
+  '()'      2
+  'while'   2
+  'until'   2
+  'if'      2
+  'then'    2
+  'elif'    2
+  'else'    2
+  'do'      2
+  'time'    2
+  'coproc'  2
+  '!'       2
+
+  # Command separators
+
+  '|'   3
+  '||'  3
+  '&&'  3
+
+  '|&'  4
+  '&!'  4
+  '&|'  4
+  '&'   4
+  ';'   4
+)
+
+local -a chosen_plugins chosen_descriptions
+# 5.0.2, 5.0.6 stop execution after unsuccessful $(<...)
+[[ -r "$ZCRASIS_REPO_DIR/gold.lst" ]] && chosen_plugins=( "${(@f)"$(<$ZCRASIS_REPO_DIR/gold.lst)"}" ) || chosen_plugins=( "" "File gold.lst not found" )
+[[ -r "$ZCRASIS_REPO_DIR/desc.lst" ]] && chosen_descriptions=( "${(@f)"$(<$ZCRASIS_REPO_DIR/desc.lst)"}" )
+
+local -a ice_order nval_ices
+ice_order=(
+    wait lucid silent service svn proto from teleid as id-as depth cloneopts
+    ver has if load unload blockf pick bpick src notify mv cp atinit atclone
+    atload atpull make run-atpull nocd cloneonly trackbinds bindmap multisrc
+    compile nocompile nocompletions reset-prompt
+    # Include all additional ices – after
+    # stripping them from the possible: ''
+    ${(@s.|.)${ZPLG_EXTS[ice-mods]//\'\'/}}
+)
+nval_ices=(
+        blockf silent lucid trackbinds cloneonly nocd run-atpull
+        nocompletions svn
+        # Include only those additional ices,
+        # don't have the '' in their name, i.e.
+        # aren't designed to hold value
+        ${(@)${(@s.|.)ZPLG_EXTS[ice-mods]}:#*\'\'*}
+)
+
+
+# Layout parameters
+local -a w_snippet_item_long w_snippet_item_short w_plugin_item_long w_plugin_item_short
+local -a w_cdreplay_item_long w_cdreplay_item_short w_cdclear_item_long w_cdclear_item_short
+local -a w_other_item_long w_other_item_short
+
+#
+# PARAMETERS
+#
+
+# Document to process
+local zshrc_path="${1:-${ZDOTDIR:-$HOME}/.zshrc}" zshrc
+
+# The bits returned by -zplg-process-buffer
+local token prev_token spaces prev_spaces next_token next_spaces
+
+# Command detection
+integer at_command=1 in_zinit=0
+
+# Functions
+local fun_name
+integer next_fun=0 cur_fun=0 prev_fun=0
+
+# Depths in functions, i.e. -1 not in function, 0 in one function, etc.
+integer depth=0 prev_depth=0 fun_depth=-1 anon_depth=-1 descentff=0 descentfa=0
+
+# Nested functions tracking
+integer nested_fun=0 next_nested_fun=0 prev_nested_fun=0
+local -a fun_stack_depths
+
+# Text and commands data
+integer was_zinit=0 pre_block_end=0 post_block_begin=0
+local -A cmd3
+local -a cmdlist
+integer coidx=1
+
+# Common
+local -a mbegin mend match
+local MATCH; integer MBEGIN MEND
+local internal # to mark inline action as no-ZUI-restart
+local tmp
+typeset -g REPLY
+typeset -ga reply
+
+# -zcrasis-process-buffer output parameters, declare
+# them to prevent globals from being created
+local -a ZCR_PB_WORDS ZCR_PB_SPACES ZCR_PB_WORDS_BEGINNINGS ZCR_PB_ALL
+
+ZUI[my_incl_comm]=0
+ZUI[my_show_diff]=0
+
+#
+# Examine zshrc
+#
+
+[[ ! -e "$zshrc_path" ]] && { print "No such file \`$zshrc_path'${ZDOTDIR:+ (using \$ZDOTDIR)}"; return 1; }
+[[ ! -f "$zshrc_path" ]] && { print "\`$zshrc_path' isn't a plain, regular file${ZDOTDIR:+ (using \$ZDOTDIR)}"; return 1; }
+[[ ! -r "$zshrc_path" ]] && { print "No read permissions to \`$zshrc_path'${ZDOTDIR:+ (using \$ZDOTDIR)}"; return 1; }
+[[ ! -w "$zshrc_path" ]] && { print "No write permissions to \`$zshrc_path'${ZDOTDIR:+ (using \$ZDOTDIR)}"; return 1; }
+[[ ! -s "$zshrc_path" ]] && { print "File \`$zshrc_path' is empty, aborting"; return 1; }
+
+#
+# Load and process theme
+#
+
+local CRASIS_THEME="$CRASIS_THEME" CRASIS_LAYOUT="${CRASIS_LAYOUT:-default}"
+
+local -a thcol_entries thcol_entries2 thbcol_entries thtxt_entries thtxt_entries2
+thcol_entries=(
+    # Top bar
+    menu-active-button-fg menu2-active-button-fg
+    reload save preview options debug delete-mode edit-mode compact-mode
+    # Add bar
+    add-snippet add-plugin gold-choose
+    # Listing
+    index enabled disabled up down delete plus-ice minus-ice
+    # Snippet item
+    s-url s-marker s-marker-disabled s-as-command s-force
+    # Plugin item
+    p-id p-marker p-marker-disabled p-compile
+    # Ice listing
+    i-indent i-unknown
+    # Preview
+    pv-main-buttons pv-comment
+    # Options view
+    o-theme-box o-switch o-layout-box o-switch2 o-save
+    # Debug view
+    d-save
+)
+
+thcol_entries2=( p-mode i-id d-email )
+
+thbcol_entries=( menu-bg menu-active-button-bg menu2-bg menu2-active-button-bg )
+
+thtxt_entries=(
+    # Top bar
+    reload-text save-text preview-text options-text debug-text delete-mode-text edit-mode-text compact-mode-text
+    # Add bar
+    add-snippet-text add-plugin-text new-id-url-text gold-choose-text gold-list-info-text
+    # Listing
+    enabled-text disabled-text enabled-unicode disabled-unicode up-text down-text up-unicode down-unicode
+    delete-text delete-unicode minus-ice-text plus-ice-text
+    # Snippet item
+    s-marker-text s-marker-disabled-text
+    # Plugin item
+    p-marker-text p-marker-disabled-text p-compile-text
+    # Ice listing
+    i-indent-text i-blockf-text i-unknown-text
+    # Options view
+    o-switch-text o-switch2-text o-save-text
+    # Debug view
+    d-save-text
+)
+
+thtxt_entries2=( p-mode-text )
+
+local -A theme
+
+# FUNCTION: -zcrasis_process_theme {{{
+# Theme file contains a little complex data and
+# this functions converts it to be ready to use
+function -zcrasis_process_theme() {
+    typeset -F 3 SECONDS=0
+
+    local -A theme_save
+    theme_save=( "${(kv@)theme[(I)*-unicode-bool]}" )
+
+    [[ -f "$ZCRASIS_REPO_DIR/crasis.conf" ]] && {
+        source "$ZCRASIS_REPO_DIR/crasis.conf"
+        # Global and from-interface $CRASIS_THEME overrides configuration file
+        CRASIS_THEME=${CRASIS_THEME:-$theme_name}
+        # For unicode glyphs, respect configuration file only at start
+        theme_save[ud-unicode-bool]="${theme_save[ud-unicode-bool]:-$move_unicode_buttons}"
+        theme_save[ed-unicode-bool]="${theme_save[ed-unicode-bool]:-$toggle_unicode_buttons}"
+        theme_save[delete-unicode-bool]="${theme_save[delete-unicode-bool]:-$delete_unicode_button}"
+    }
+
+    theme=( "${(kv@)theme_save}" )
+
+    # Mostly initial values, but also error check
+    [[ "${theme[ud-unicode-bool]}" != [0-1] ]] && theme[ud-unicode-bool]=1
+    [[ "${theme[ed-unicode-bool]}" != [0-1] ]] && theme[ed-unicode-bool]=1
+    [[ "${theme[delete-unicode-bool]}" != [0-1] ]] && theme[delete-unicode-bool]=1
+
+    # Fallback path for theme name
+    [[ ! -f "$ZCRASIS_REPO_DIR/themes/${CRASIS_THEME}.cr-theme" ]] && {
+        -zui_std_stalog "No such theme: " "$CRASIS_THEME," "" " reverted to default"
+        CRASIS_THEME="default"
+
+        [[ ! -f "$ZCRASIS_REPO_DIR/themes/${CRASIS_THEME}.cr-theme" ]] && {
+            print "Couldn't find theme \`$CRASIS_THEME', have to abort.."
+            print "Looked for file: $ZCRASIS_REPO_DIR/themes/${CRASIS_THEME}.cr-theme"
+            return 1
+        }
+    }
+
+
+    source "$ZCRASIS_REPO_DIR/themes/${CRASIS_THEME}.cr-theme"
+    theme+=( "${(kv)my_crasis_theme_data[@]}" )
+    theme[i-blockf]="${${(s;:;)theme[i-id]}[5]}"
+    theme[layout]="$(<$ZCRASIS_REPO_DIR/layouts/${CRASIS_LAYOUT}.cr-layout)"
+
+    # Stats on color settings
+    local -a provided missing
+    provided=( "${(@)theme[(I)(${(~j:|:)thcol_entries})]}" "${(@)theme[(I)(${(~j:|:)thcol_entries2})]}" )
+    missing=( ${thcol_entries:|provided} ${thcol_entries2:|provided} )
+    -zcrasis_dbg_msg "Theme provided ${#provided} color entries (out of $(( ${#thcol_entries} + ${#thcol_entries2} )) required, missing keys: ${missing:-none})"
+
+    # Stats on text settings
+    provided=( "${(@)theme[(I)(${(~j:|:)thtxt_entries})]}" "${(@)theme[(I)(${(~j:|:)thtxt_entries2})]}" )
+    missing=( ${thtxt_entries:|provided} ${thtxt_entries2:|provided} )
+    -zcrasis_dbg_msg "Theme provided ${#provided} text entries (out of $(( ${#thtxt_entries} + ${#thtxt_entries2} )) required, missing keys: ${missing:-none})"
+
+    # Convert colors' symbolic names like "green"
+    local ckey cval nval
+    for ckey in "${thcol_entries[@]}" "${thbcol_entries[@]}" i-blockf; do
+        cval=${(U)theme[$ckey]}
+        [[ -z "$cval" ]] && continue
+
+        [[ -n "${thbcol_entries[(r)$ckey]}" ]] && nval=${ZUI[BG_$cval]} || nval=${ZUI[$cval]}
+
+        if [[ -n "$nval" ]]; then
+            theme[$ckey]="$nval"
+        else
+            cval="${cval#B}"
+            [[ -n "${thbcol_entries[(r)$ckey]}" ]] && nval=${ZUI[BG_$cval]} || nval=${ZUI[$cval]}
+            [[ -n "$nval" ]] && theme[$ckey]="${ZUI[BOLD]}$nval" || theme[$ckey]=""
+        fi
+    done
+
+    # Convert array-colors specifications
+    local mkey
+    local -a thsplit
+    integer index
+    for mkey in "${thcol_entries2[@]}"; do
+        thsplit=( "${(@Us;:;)theme[$mkey]}" )
+        index=0
+        for cval in "${thsplit[@]}"; do
+            index+=1
+            nval=${ZUI[$cval]}
+
+            if [[ -n "$nval" ]]; then
+                theme[${mkey}-${index}]="$nval"
+            else
+                cval="${cval#B}"
+                nval="${ZUI[$cval]}"
+                [[ -n "$nval" ]] && theme[${mkey}-${index}]="${ZUI[BOLD]}$nval" || theme[${mkey}-${index}]=""
+            fi
+        done
+    done
+
+    # Convert non-semicolon texts to colored ones
+    local tkey tval
+    for tkey in "${thtxt_entries[@]}"; do
+        tval="${theme[$tkey]}"
+
+        # %s conversion
+        if [[ "${tval/\%s*,/}" != "$tval" ]]; then
+            thsplit=( "${(@s:,:)tval}" )
+
+            cval="${theme[${tkey%(-text|-unicode)}]}"
+            if [[ -n "$cval" ]]; then
+                [[ -n "${thsplit[2]}" ]] && thsplit[2]="${cval}${thsplit[2]}${ZUI[FMT_END]}"
+                [[ -n "${thsplit[3]}" ]] && thsplit[3]="${cval}${thsplit[3]}${ZUI[FMT_END]}"
+            fi
+
+            tval=`printf "${thsplit[@]}"`
+            theme[${tkey}-c]="$tval"
+        else
+            cval="${theme[${tkey%(-text|-unicode)}]}"
+            if [[ -n "$cval" ]]; then
+                [[ -n "$tval" ]] && theme[${tkey}-c]="${cval}$tval${ZUI[FMT_END]}"
+            else
+                [[ -n "$tval" ]] && theme[${tkey}-c]="$tval"
+            fi
+        fi
+    done
+
+    # Convert semicolon texts to colored ones
+    local -a thsplit2
+    for mkey in "${thtxt_entries2[@]}"; do
+        thsplit=( "${(@s:;:)theme[$mkey]}" )
+
+        index=0
+        for tval in "${thsplit[@]}"; do
+            index+=1
+            # %s conversion
+            if [[ "${tval/\%s*,/}" != "$tval" ]]; then
+                thsplit=( "${(@s:,:)tval}" )
+
+                cval="${theme[${mkey%(-text|-unicode)}-${index}]}"
+                if [[ -n "$cval" ]]; then
+                    [[ -n "${thsplit[2]}" ]] && thsplit[2]="${cval}${thsplit[2]}${ZUI[FMT_END]}"
+                    [[ -n "${thsplit[3]}" ]] && thsplit[3]="${cval}${thsplit[3]}${ZUI[FMT_END]}"
+                fi
+
+                tval=`printf "${thsplit[@]}"`
+                theme[${mkey}-c-${index}]="$tval"
+            else
+                cval="${theme[${mkey%(-text|-unicode)}-${index}]}"
+                if [[ -n "$cval" ]]; then
+                    theme[${mkey}-c-${index}]="${cval}$tval${ZUI[FMT_END]}"
+                else
+                    theme[${mkey}-c-${index}]="$tval"
+                fi
+            fi
+        done
+    done
+
+    chosen_plugins[1]="$theme[gold-list-info-text]"
+    [[ -n "$theme[i-unknown]" ]] && {
+        theme[i-unknown-text-c]="${theme[i-unknown-text]//\%s/${theme[i-unknown]}%s$ZUI[FMT_END]}"
+    } || theme[i-unknown-text-c]="$theme[i-unknown-text]"
+
+    -zcrasis_dbg_msg_arr "Theme processing time: $SECONDS seconds" ""
+    -zui_std_stalog "Loaded theme \`$CRASIS_THEME' and layout \`$CRASIS_LAYOUT'"
+
+    return 0
+}
+# }}}
+# FUNCTION: -zcrasis_set_zui_settings {{{
+# If theme provides palette-string, it is
+# applied to ZUI settings of this application
+function -zcrasis_set_zui_settings() {
+    [[ -n "$theme[palette-string]" ]] && {
+        autoload is-at-least
+        if [[ "$theme[palette-string]" = *[[:digit:]]* ]] && ! is-at-least 5.3; then
+            -zui_std_stalog "256-color palette needs " "Zsh >= 5.3, " "" "it hasn't been applied"
+        else
+            ZUI[palette]="$theme[palette-string]"
+        fi
+    }
+    [[ -n "$theme[logs-palette-string]" ]] && {
+        autoload is-at-least
+        if [[ "$theme[logs-palette-string]" = *[[:digit:]]* ]] && ! is-at-least 5.3; then
+            -zui_std_stalog "256-color logs palette needs " "Zsh >= 5.3, " "" "it hasn't been applied"
+        else
+            ZUI[log_colors]="${theme[logs-palette-string]//:/ }"
+        fi
+    }
+    [[ -n "$theme[colorpair-string]" ]] && {
+        autoload is-at-least
+        if [[ "$theme[colorpair-string]" = *[[:digit:]]* ]] && ! is-at-least 5.3; then
+            -zui_std_stalog "256-colors need " "Zsh >= 5.3, " "" "color was skipped"
+        else
+            ZUI[colorpair]="${theme[colorpair-string]}"
+        fi
+    }
+    [[ -n "$theme[status-cp-string]" ]] && {
+        autoload is-at-least
+        if [[ "$theme[status-cp-string]" = *[[:digit:]]* ]] && ! is-at-least 5.3; then
+            -zui_std_stalog "256-colors need " "Zsh >= 5.3, " "" "color was skipped"
+        else
+            ZUI[status_colorpair]="${theme[status-cp-string]}"
+        fi
+    }
+    [[ -n "$theme[mark]}" ]] && ZUI[mark]="$theme[mark]"
+    [[ -n "$theme[mark2]}" ]] && ZUI[mark2]="$theme[mark2]"
+    [[ -n "$theme[altmark]}" ]] && ZUI[altmark]="$theme[altmark]"
+    [[ -n "$theme[altmark2]}" ]] && ZUI[altmark2]="$theme[altmark2]"
+}
+# }}}
+# FUNCTION: -zcrasis_switch_theme {{{
+# Switches theme during operation of Crasis (not
+# at startup).
+#
+# $1 - theme name (not path, no .cr-theme extension)
+-zcrasis_switch_theme() {
+    -zui_std_strip_color_codes "$1"
+    CRASIS_THEME="$REPLY"
+    -zcrasis_process_theme
+    -zcrasis_set_zui_settings
+}
+# }}}
+# FUNCTION: -zcrasis_switch_layout {{{
+# Switches layout during operation of Crasis (not
+# at startup).
+#
+# $1 - layout name (not path, no .cr-theme extension)
+-zcrasis_switch_layout() {
+    -zui_std_strip_color_codes "$1"
+    CRASIS_LAYOUT="$REPLY"
+    -zcrasis_process_theme
+    -zcrasis_set_zui_settings
+}
+# }}}
+# FUNCTION: -zcrasis_action_save_options {{{
+# Stores current settings to $ZCRASIS_REPO_DIR/crasis.conf.
+# Outputs status message.
+-zcrasis_action_save_options() {
+    local out="$ZCRASIS_REPO_DIR/crasis.conf"
+    print -r -- "local theme_name=${CRASIS_THEME}   # Name of active theme. \$CRASIS_THEME overrides." >| "$out"
+    print -r -- "local move_unicode_buttons=${theme[ud-unicode-bool]}   # Use unicode glyphs for up & down buttons?" >>| "$out"
+    print -r -- "local toggle_unicode_buttons=${theme[ed-unicode-bool]} # Use unicode glyphs for enable & disable buttons?" >>| "$out"
+    print -r -- "local delete_unicode_button=${theme[delete-unicode-bool]}  # Use unicode glyphs for disable button?" >>| "$out"
+    -zui_std_stalog "Configuration saved to: " "$out"
+}
+# }}}
+
+-zcrasis_process_theme || return 1
+-zcrasis_set_zui_settings
+
+# FUNCTION: -zcrasis-tokenize-zsh-rc {{{
+# Runs -zcrasis-process-buffer() on $zshrc (containing the loaded
+# .zshrc file). The *-process-buffer() is a general function that
+# exists in other projects, is an autoload function, and is kept
+# in separate file "-zcrasis-process-buffer".
+-zcrasis-tokenize-zsh-rc() {
+    -zcrasis-process-buffer "$zshrc" 1
+}
+# }}}
+# FUNCTION: -zcrasis_verify_tokenization {{{
+# To large extent verifies if tokenization was correct.
+# Also removes the test-tokens added to input zshrc.
+-zcrasis_verify_tokenization() {
+    local lasta="${ZCR_PB_WORDS[-1]}" lastb="${ZCR_PB_ALL[-2]}"
+
+    if [[ "$lasta" != "test" || "$lastb" != "test" ]]; then
+        return 1
+    fi
+
+    ZCR_PB_WORDS[-1]=()
+    ZCR_PB_SPACES[-1]=()
+    ZCR_PB_SPACES[-1]="${ZCR_PB_SPACES[-1]%$'\n'}"
+    ZCR_PB_ALL[-2,-1]=()
+    ZCR_PB_ALL[-1]="${ZCR_PB_ALL[-1]%$'\n'}"
+
+    return 0
+}
+# }}}
+# FUNCTION: -zcrasis_tokenization_failed {{{
+# Outputs a message that zshrc didn't parse, and
+# includes information what can be a possible cause.
+-zcrasis_tokenization_failed() {
+    print -r -- "Failed to parse zshrc. Possible causes:"
+    print -r -- ""
+    print -r -- "1. Zsh <= 5.4.2 doesn't parse closing parenthesis ')' for '\$('"
+    print -r -- "   if it is at other line, not at the same line as '\$('. So:"
+    print -r -- ""
+    print -r -- "     \$(ls -1 | perl -alne 'echo foo')"
+    print -r -- ""
+    print -r -- "   will parse correctly, while:"
+    print -r -- ""
+    print -r -- "     \$(ls -1 | perl -alne 'echo foo'"
+    print -r -- "     )"
+    print -r -- ""
+    print -r -- "   will not. A more sophisticated not-parsing example:"
+    print -r -- ""
+    print -r -- "     asmcmds+=(\${(o)\$(ls -1 | perl -alne 'echo foo'"
+    print -r -- "     )})"
+    print -r -- ""
+    print -r -- "2. A regular syntax error may exist, try: zcompile .zshrc, or"
+    print -r -- "   start a zsh session and see if there are error messages."
+    print -r -- ""
+}
+# }}}
+# FUNCTION: -zcrasis-process-zsh-rc {{{
+# Parses tokens of the loaded zshrc and detects:
+# - functions
+# - block preceding zinit commands
+# - block with those commands
+# - block following them
+#
+# Uses parameters filled by -zcrasis-process-buffer:
+# - $ZCR_PB_WORDS - tokens
+# - $ZCR_PB_SPACES - spaces in front of each token, +1 at the end
+-zcrasis-process-zsh-rc() {
+    integer i j size="${#ZCR_PB_WORDS}"
+
+    for (( i=1; i<=size; ++ i )); do
+        token="${ZCR_PB_WORDS[i]}"
+        spaces="${ZCR_PB_SPACES[i]}"
+        next_token="${ZCR_PB_WORDS[i+1]}"
+        next_spaces="${ZCR_PB_SPACES[i+1]}"
+
+        cur_fun=0 prev_fun=0 descentff=0 descentfa=0
+        nested_fun=0 prev_nested_fun=0
+
+        (( next_fun )) && { next_fun=0 cur_fun=1 prev_fun=0 anon_depth=-1; }
+        (( next_nested_fun )) && { next_nested_fun=0 nested_fun=1 prev_nested_fun=0; }
+
+        # Explicit future-function
+        if [[ "$token" = "function"(|$'\r') && ( "$fun_depth" -lt 0 ) && ( $anon_depth -lt 0 ) ]]; then
+            next_fun=1 cur_fun=0 prev_fun=0 anon_depth=-1
+        # Detect top-level prev-function differentiating from anonymous function
+        elif [[ "$token" = "()"(|$'\r') && ( "$fun_depth" -lt 0 ) && ( $anon_depth -lt 0 ) ]]; then
+            if [[ "$spaces" = *$'\n'* || -z "$prev_token" || "${TOKEN_TYPES[$prev_token]}" = [1234] ]]; then
+                next_fun=0 cur_fun=0 prev_fun=0 anon_depth=$depth
+            else
+                next_fun=0 cur_fun=0 prev_fun=1 anon_depth=-1
+            fi
+        # Must be a nested future-function
+        elif [[ "$token" = "function"(|$'\r') ]]; then
+            next_nested_fun=1 nested_fun=0 prev_nested_fun=0
+        # Is it a nested prev-function?
+        elif [[ "$token" = "()"(|$'\r') && "$nested_fun" -eq 0 && "$depth" -gt "$fun_stack_depths[-1]" ]]; then
+            if [[ "$spaces" != *$'\n'* && -n "$prev_token" && "${TOKEN_TYPES[$prev_token]}" != [1234] ]]; then
+                next_nested_fun=0 nested_fun=0 prev_nested_fun=1
+            fi
+        elif [[ "$token" = "{"(|$'\r') ]]; then
+            (( ++ depth ))
+        elif [[ "$token" = "}"(|$'\r') ]]; then
+            (( -- depth ))
+        fi
+
+        # Check if any final function-flag is raised
+        if (( cur_fun )); then
+            fun_name="${token%$'\r'}"
+            fun_depth="$depth"
+            fun_stack_depths+=( "$depth" )
+        elif (( prev_fun )); then
+            fun_name="${prev_token%$'\r'}"
+            fun_depth="$depth"
+            fun_stack_depths+=( "$depth" )
+        fi
+
+        # Track nested functions
+        if (( nested_fun + prev_nested_fun )); then
+            fun_stack_depths+=( "$depth" )
+        fi
+
+        # Ascent to function - skip '{'
+        if (( fun_depth >= 0 && depth == (fun_depth + 1) )) && [[ "$token" = "{"(|$'\r') ]]; then
+            :
+        # In function
+        elif (( fun_depth >= 0 && depth > fun_depth )); then
+            if [[ "$token" != [[:blank:]]#\#* ]]; then
+                : # do something with a non-comment function token
+            fi
+            # Handle descent from nested function
+            if (( ${#fun_stack_depths} > 0 && depth == fun_stack_depths[-1] && prev_depth == fun_stack_depths[-1] + 1 )); then
+                fun_stack_depths[-1]=()
+            fi
+        # In anonymous-function
+        elif (( anon_depth >= 0 && depth > anon_depth )); then
+            if (( ${#fun_stack_depths} > 0 && depth == fun_stack_depths[-1] && prev_depth == fun_stack_depths[-1] + 1 )); then
+                fun_stack_depths[-1]=()
+            fi
+        # Descent from function - skip '}'
+        elif (( fun_depth >= 0 && depth == fun_depth && prev_depth == fun_depth + 1 )); then
+            descentff=1
+        # Descent from anon
+        elif (( anon_depth >= 0 && depth == anon_depth && prev_depth == anon_depth + 1 )); then
+            descentfa=1
+        fi
+
+        # Anon function in top-level
+        if (( anon_depth >= 0 && fun_depth < 0 )); then
+            [[ "$token" != [[:blank:]]#\#* ]] && : # do something with non-comment anon-function token
+        fi
+
+        # Check for introduction of Zinit call
+        if [[ "$spaces" = *$'\n'* || -z "$prev_token" || "${TOKEN_TYPES[$prev_token]}" = [1234] ]]; then
+            if [[ $spaces != [[:blank:]]#"\\"(|$'\r')$'\n'[[:blank:]]# || ${TOKEN_TYPES[$prev_token]} = [1234] ]]; then
+                at_command=1
+                [[ "$token" != [[:blank:]]#\#* ]] && in_zinit=0 || { (( in_zinit )) && in_zinit=1; }
+            fi
+            (( in_zinit )) && {
+                (( 2*i - 1 - post_block_begin > 7*4 )) && { -zui_std_stalog "WARNING:" " many non-Zinit commands in Zinit block"; }
+                # A new command (i.e. $spaces has a new line, etc.) - move the post-block pointer
+                post_block_begin=2*i-1
+            }
+        fi
+
+        # Command token
+        if (( at_command )); then
+            at_command=0
+            # Zinit call not in function
+            if [[ "$cur_fun" -eq 0 && "$next_token" != "()"(|$'\r') && "$fun_stack_depths[-1]" -le "0" ]]; then
+                if [[ "$token" = (zplugin|zplg|zinit) || ( "$token" = ":" && "$next_token" = (zplugin|zplg|zinit) ) ]]; then
+                    in_zinit=1
+                    (( was_zinit == 0 )) && {
+                        for (( j=i-1; j >= 1; j -- )); do
+                            [[ "${ZCR_PB_WORDS[j]}" != [[:blank:]]#\#* || "${ZCR_PB_SPACES[j+1]}" = *$'\n'*$'\n'* ]] && { pre_block_end=2*j; break; }
+                        done
+                    }
+                    was_zinit=1
+
+                    # Revive at_command mode if disabled zinit command
+                    [[ "$token" = ":" ]] && at_command=1
+                fi
+            fi
+        fi
+
+        # Late disable of anonymous function
+        if (( descentfa )); then
+            anon_depth=-1
+        # Late disable of normal function
+        elif (( descentff )); then
+            fun_name=""
+            fun_depth=-1
+            fun_stack_depths[-1]=()
+        # No-function text gathering
+        elif (( next_fun == 0 && cur_fun == 0 && prev_fun == 0 && anon_depth < 0 && fun_depth < 0 )); then
+            if [[ "$next_token" != "()"(|$'\r') || "$next_spaces" = *$'\n'* || "${TOKEN_TYPES[$token]}" = [34] ]]; then
+                [[ "$token" != [[:blank:]]#\#* ]] && : # do something with script-body token
+            fi
+        fi
+
+        # History of state
+        prev_depth="$depth"
+        prev_token="$token"
+        prev_spaces="$spaces"
+    done
+
+    # If zinit command ended the zshrc, detect it here
+    (( in_zinit )) && post_block_begin=2*i-1
+
+    if (( pre_block_end == 0 )); then
+        (( post_block_begin == 0 )) && pre_block_end=2*(i-1)
+    else
+        j=0+(pre_block_end/2)
+
+        # Soft command-separator?
+        if [[ "${TOKEN_TYPES[${ZCR_PB_WORDS[j]}]}" = "3" ]]; then
+            integer found=0
+            for (( j=(pre_block_end/2)-1; j>=1; -- j )); do
+                token="${ZCR_PB_WORDS[j]}"
+                spaces="${ZCR_PB_SPACES[j]}"
+                next_token="${ZCR_PB_WORDS[j+1]}"
+                next_spaces="${ZCR_PB_SPACES[j+1]}"
+                (( j >= 2 )) && prev_token="${ZCR_PB_WORDS[j-1]}" || prev_token=""
+
+                if [[ "${TOKEN_TYPES[$token]}" = "4" ]]; then
+                    found=1
+                    pre_block_end=2*j
+                    break
+                # Soft command separator can have spaces after it
+                elif [[ "$spaces" = *$'\n'* && "${TOKEN_TYPES[$prev_token]}" != "3" ]]; then
+                    pre_block_end=2*(j-1)
+                    found=1
+                    break
+                fi
+            done
+
+            # Didn't found, and therefore reached beginning of file
+            (( found == 0 )) && pre_block_end=0
+        fi
+    fi
+
+    if (( post_block_begin == 0 )); then
+        post_block_begin=2*i-1
+    else
+        # Detect not related trailing comments
+        for (( j=(post_block_begin+1)/2-1; j >= 1; -- j )); do
+            [[ "${ZCR_PB_WORDS[j]}" = [[:blank:]]#\#* && "${ZCR_PB_WORDS[j]}" != [[:blank:]]#\#[[:blank:]]#zinit* ]] && {
+                post_block_begin=2*j-1
+            } || break
+        done
+
+        # Detect if compinit follows
+        integer count=$(( size-(post_block_begin+1)/2 ))
+        local next_token_2
+        (( count = (count > 15) ? 15 : count ))
+        for (( j=(post_block_begin+1)/2; count > 0; ++ j, -- count )); do
+            token="${ZCR_PB_WORDS[j]}"
+            next_token="${ZCR_PB_WORDS[j+1]}"
+            next_token_2="${ZCR_PB_WORDS[j+2]}"
+            next_spaces="${ZCR_PB_SPACES[j+1]}"
+
+            if [[ "$token" = "autoload" && ( "$next_token" = "compinit" || "$next_token_2" = "compinit" ) ]]; then
+                [[ "$next_token" = "compinit" ]] && { post_block_begin=2*(j+2)-1; j+=1; count=count-1; }
+                [[ "$next_token_2" = "compinit" ]] && { post_block_begin=2*(j+3)-1; j+=2; count=count-2; }
+            elif [[ "$token" = "compinit" && ( "$next_spaces" = *$'\n'* || "${TOKEN_TYPES[$next_token]}" = 4 ) ]]; then
+                # TODO: soft-connected following tokens can be also included
+                post_block_begin=2*(j+1)-1
+                break
+            fi
+        done
+    fi
+}
+# }}}
+# FUNCTION: -zcrasis-process-zinit-commands {{{
+# Processes block with zinit commands established earlier
+# in -zcrasis-process-zsh-rc() and generates $cmdlist array
+# which holds serialized hashes of every zinit invocation,
+# mixed-in additional (external) commands, comments.
+#
+# Uses parameters filled by -zcrasis-process-buffer:
+# - $ZCR_PB_WORDS - tokens
+# - $ZCR_PB_SPACES - spaces in front of each token, +1 at the end
+-zcrasis-process-zinit-commands() {
+    integer i
+    cmd3=()
+
+    # Reset parameters used in -zcrasis-process-zsh-rc
+    prev_depth=0 prev_token="" prev_spaces=""
+
+    # From start to end of zinit block
+    for (( i=(pre_block_end/2)+1; i<=(post_block_begin+1)/2-1; ++ i )); do
+        token="${ZCR_PB_WORDS[i]}"
+        spaces="${ZCR_PB_SPACES[i]}"
+        next_token="${ZCR_PB_WORDS[i+1]}"
+        next_spaces="${ZCR_PB_SPACES[i+1]}"
+
+        # New command?
+        if [[ "$spaces" = *$'\n'* || -z "$prev_token" || "${TOKEN_TYPES[$prev_token]}" = [1234] ]]; then
+            if [[ "${TOKEN_TYPES[$prev_token]}" = [34] ]]; then
+                # When command ends with explicit command separator,
+                # then remember white spaces after that separator
+                cmd3[aspaces]="$spaces"
+            elif [[ "$spaces" != (|$'\r')$'\n' ]]; then
+                # Remember spaces if they're not single newline, and
+                # if what follows isn't a comment. So basically spaces
+                # between commands are remembered. Spaces before comments
+                # are not (but comment-remembering handles this)
+                if [[ "$token" != [[:blank:]]#\#* ]]; then
+                    cmd3[aspaces]="$spaces"
+                else
+                    unset 'cmd3[aspaces]'
+                fi
+            else
+                unset 'cmd3[aspaces]'
+            fi
+
+            if [[ "$spaces" != [[:blank:]]#"\\"(|$'\r')$'\n'[[:blank:]]# ]]; then
+                in_zinit=1
+
+                if [[ "${cmd3[c]}" = (zplugin|zinit) && "${cmd3[sub]}" = "ice" ]]; then
+                    cmdlist[coidx+1]="${(j: :)${(qkv)cmd3[@]}}"
+                elif [[ "${cmd3[c]}" = (zplugin|zinit) && "${cmd3[sub]}" != "ice" ]]; then
+                    cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
+                    coidx+=3
+                else
+                    # Don't increase coidx untill we get some command.
+                    # This causes preceding comments to accumulate.
+                    if [[ -n "${cmd3[c]}" ]]; then
+                        # Custom command
+                        cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
+                        coidx+=3
+                    fi
+                fi
+
+                cmd3=()
+            fi
+        fi
+
+        # Command token
+        if [[ "$token" = [[:blank:]]#\#* ]]; then
+            if (( in_zinit == 1 )); then
+                cmdlist[coidx]="${cmdlist[coidx]%%[[:space:]]##}"
+                cmdlist[coidx]+="$spaces$token$next_spaces"
+            else
+                cmd3[comment]="$spaces$token"
+            fi
+        elif (( in_zinit == 1 )); then
+            [[ "$token" = (zplugin|zplg|zinit) ]] && "${cmd3[c]}" = (zplugin|zinit) || cmd3[c]="$token"
+            # Postpone current state to next token
+            [[ "$token" = ":" ]] && { cmd3[disabled]=1; (( in_zinit -- )); }
+        elif (( in_zinit == 2 )); then
+            if [[ "${cmd3[c]}" = (zplugin|zinit) ]]; then
+                [[ "$token" = (ice|load|light|snippet|cdclear|
+                                cdreplay|env-whitelist|create)
+                ]] && {
+                    cmd3[sub]="$token"
+                    # We get another ice-command while a previous ice-command
+                    # is still being pointed to by coidx? -> progress coidx
+                    [[ "$token" = ice && -n "${cmdlist[coidx+1]}" ]] && \
+                        coidx+=3
+                    ((1))
+                } || \
+                    { cmd3[sub]="unkn"; cmd3[unkn]="$token"; }
+            else
+                cmd3[arg_1]="$token"
+                cmd3[spaces_1]="$spaces"
+            fi
+        else
+            if [[ "${cmd3[sub]}" = "ice" ]]; then
+                # Also dequote the ice modifier
+                [[ "$token" = (#b)(${(~j:|:)ice_order})(?)(?)(*)(?) || \
+                    "$token" = (#b)(${(~j:|:)ice_order})(*)
+                ]] && {
+                    local key="${match[1]}" string="${match[2]#[:=]}${match[3]}${match[4]}${match[5]}"
+                    local second="${match[2]}" third="${match[3]}" last="${match[5]}"
+                    cmd3[$key]="${string//(#b)(:|=|)([\"\']|\$\'|)(*)[\"\']/${match[3]}}"
+                    # Remember also the quoting style, if the quoting
+                    # is a recognized one
+                    [[ ( -n "$second" && "$second" = "$last" ) || \
+                        "$second" = (:|=)* # Via the star this handles both matchings
+                    ]] && \
+                        cmd3[${key}_style]="${second[1]}" || {
+                            [[ "$second" = '$' && "$third" = "'" ]] && \
+                                cmd3[${key}_style]="\$'"
+                        }
+                    ((1))
+                } || {
+                    cmd3[custom_$(( in_zinit - 2 ))]="$token"
+                    cmd3[spaces_$(( in_zinit - 2 ))]="$spaces"
+                }
+            elif [[ "${cmd3[sub]}" = (load|light) ]]; then
+                if (( in_zinit == 4 )); then
+                    cmd3[url]+="/$token"
+                elif (( ${+cmd3[url]} == 0 )); then
+                    cmd3[url]="$token"
+                else
+                    cmd3[custom_$(( in_zinit - 2 ))]="$token"
+                    cmd3[spaces_$(( in_zinit - 2 ))]="$spaces"
+                fi
+            elif [[ "${cmd3[sub]}" = "snippet" ]]; then
+                if [[ "$token" = "-f" ]]; then
+                    cmd3[-f]="1"
+                elif [[ "$token" = "--command" ]]; then
+                    cmd3[--command]="1"
+                elif [[ ${+cmd3[url]} != 1 && "${TOKEN_TYPES[$token]}" != [34] ]]; then
+                    cmd3[url]="$token"
+                else
+                    cmd3[custom_$(( in_zinit - 2 ))]="$token"
+                    cmd3[spaces_$(( in_zinit - 2 ))]="$spaces"
+                fi
+            elif [[ "${cmd3[sub]}" = "cdclear" ]]; then
+                [[ "$token" = "-q" ]] && cmd3[-q]="1" || {
+                    cmd3[custom_$(( in_zinit - 2 ))]="$token"
+                    cmd3[spaces_$(( in_zinit - 2 ))]="$spaces"
+                }
+            elif [[ "${cmd3[sub]}" = "cdreplay" ]]; then
+                [[ "$token" = "-q" ]] && cmd3[-q]="1" || {
+                    cmd3[custom_$(( in_zinit - 2 ))]="$token"
+                    cmd3[spaces_$(( in_zinit - 2 ))]="$spaces"
+                }
+            elif [[ "${cmd3[sub]}" = "unkn" ]]; then
+                # Argument following "zinit <unknown> ..."
+                cmd3[arg_$(( in_zinit - 2 ))]="$token"
+            else
+                # Argument following "<unknown> <arg_1> ..."
+                cmd3[arg_$(( in_zinit - 1 ))]="$token"
+                cmd3[spaces_$(( in_zinit - 1 ))]="$spaces"
+            fi
+        fi
+
+        # Advance deeper into "zinit ..." if it wasn't comment
+        #[[ "$token" != [[:blank:]]#\#* ]] && in_zinit+=1
+        in_zinit+=1
+
+        # History of state
+        prev_depth="$depth"
+        prev_token="$token"
+        prev_spaces="$spaces"
+    done
+
+    if [[ -n "${cmd3[c]}" ]];then
+        if [[ "${cmd3[c]}" = (zplugin|zinit) && "${cmd3[sub]}" = "ice" ]]; then
+            cmdlist[coidx+1]="${(j: :)${(qkv)cmd3[@]}}"
+        elif [[ "${cmd3[c]}" = (zplugin|zinit) && "${cmd3[sub]}" != "ice" ]]; then
+            cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
+        elif [[ "${cmd3[c]}" = (zplugin|zinit) ]]; then
+            cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
+        fi
+        -zcrasis_dbg_msg "Zinit block in zshrc has $(( (coidx + 2) / 3 )) commands (not counting \`zinit ice ...')"
+    else
+        -zcrasis_dbg_msg "Zinit block in zshrc has $(( (coidx-1) / 3 )) commands (not counting \`zinit ice ...')"
+    fi
+
+    -zcrasis_dbg_msg ""
+}
+# }}}
+# FUNCTION: -zcrasis_util_swap {{{
+# Swaps two variables given by name. Uses (P) substitution
+# flag, can swap e.g. hash entries. For example:
+#   local -A hash_arr=( a b c d )
+#   -zcrasis_util_swap 'hash_arr[a]' 'hash_arr[b]'
+#
+# $1 - name of first variable to swap
+# $2 - name of second variable to swap
+-zcrasis_util_swap() {
+    local __var_name1="$1" __var_name2="$2" __tmp
+    integer set1="${(P)+__var_name1}" set2="${(P)+__var_name2}"
+
+    if (( set1 && set2 )); then
+        tmp="${(P)__var_name1}"
+        : ${(P)__var_name1::=${(P)__var_name2}}
+        : ${(P)__var_name2::=$tmp}
+    elif (( set1 && !set2 )); then
+        : ${(P)__var_name2::=${(P)__var_name1}}
+        unset $__var_name1
+    elif (( !set1 && set2 )); then
+        : ${(P)__var_name1::=${(P)__var_name2}}
+        unset $__var_name2
+    fi
+}
+# }}}
+# FUNCTION: -zcrasis_action_move_up {{{
+# Moves given instance ($2) up, i.e. swaps current and
+# previous instance. Using "instance" here means: ZUI's
+# module instance representing single zinit command
+# (possibly preceded with "zinit ice ..." invocation)
+# by the design of Crasis. Instance = invocation of a
+# generator with "module_idx" "instance_idx" arguments.
+#
+# $1 - module index (will be 2)
+# $2 - instance index
+-zcrasis_action_move_up() {
+    local mod="$1" ice="$2" t
+
+    local -a cmd1 cmd2
+
+    (( (ice-1-1)*3+1 > ${#cmdlist} || (ice-1)*3 > ${#cmdlist} || (ice-1)*3+1 > ${#cmdlist} || ice*3 > ${#cmdlist} )) && return 1
+
+    cmd1=( "${(@)cmdlist[(ice-1-1)*3+1,(ice-1)*3]}" )
+    cmd2=( "${(@)cmdlist[(ice-1)*3+1,ice*3]}" )
+
+    cmdlist[(ice-1-1)*3+1,(ice-1)*3]=( "${cmd2[@]}" )
+    cmdlist[(ice-1)*3+1,ice*3]=( "${cmd1[@]}" )
+
+    noglob -zcrasis_util_swap ZUI[toggle_dis_${mod}_${ice}] ZUI[toggle_dis_${mod}_$(( ice-1 ))]
+    noglob -zcrasis_util_swap ZUI[toggle_command_${mod}_${ice}] ZUI[toggle_command_${mod}_$(( ice-1 ))]
+    noglob -zcrasis_util_swap ZUI[toggle_force_${mod}_${ice}] ZUI[toggle_force_${mod}_$(( ice-1 ))]
+    noglob -zcrasis_util_swap ZUI[toggle_mode_${mod}_${ice}] ZUI[toggle_mode_${mod}_$(( ice-1 ))]
+
+    for t in "${ice_order[@]}"; do
+        noglob -zcrasis_util_swap ZUI[my_tfield4_${ice}_${t}_width] ZUI[my_tfield4_$(( ice-1 ))_${t}_width]
+        noglob -zcrasis_util_swap ZUI[my_tfield4_${ice}_${t}_start] ZUI[my_tfield4_$(( ice-1 ))_${t}_start]
+        noglob -zcrasis_util_swap ZUI[my_tfield4_${ice}_${t}_data] ZUI[my_tfield4_$(( ice-1 ))_${t}_data]
+    done
+
+    return 0
+}
+# }}}
+# FUNCTION: -zcrasis_action_move_down {{{
+# Moves given instance ($2) down, i.e. swaps current and
+# next instance. Using "instance" here means: ZUI's
+# module instance representing single zinit command
+# (possibly preceded with "zinit ice ..." invocation)
+# by the design of Crasis. Instance = invocation of a
+# generator with "module_idx" "instance_idx" arguments.
+#
+# $1 - module index (will be 2)
+# $2 - instance index
+-zcrasis_action_move_down() {
+    local mod="$1" ice="$2" t
+
+    local -a cmd1 cmd2
+
+    (( (ice-1)*3+1 > ${#cmdlist} || ice*3 > ${#cmdlist} || (ice-1+1)*3+1 > ${#cmdlist} || (ice+1)*3 > ${#cmdlist} )) && return 1
+
+    cmd1=( "${(@)cmdlist[(ice-1)*3+1,ice*3]}" )
+    cmd2=( "${(@)cmdlist[(ice-1+1)*3+1,(ice+1)*3]}" )
+
+    cmdlist[(ice-1)*3+1,ice*3]=( "${cmd2[@]}" )
+    cmdlist[(ice-1+1)*3+1,(ice+1)*3]=( "${cmd1[@]}" )
+
+    noglob -zcrasis_util_swap ZUI[toggle_dis_${mod}_${ice}] ZUI[toggle_dis_${mod}_$(( ice+1 ))]
+    noglob -zcrasis_util_swap ZUI[toggle_command_${mod}_${ice}] ZUI[toggle_command_${mod}_$(( ice+1 ))]
+    noglob -zcrasis_util_swap ZUI[toggle_force_${mod}_${ice}] ZUI[toggle_force_${mod}_$(( ice+1 ))]
+    noglob -zcrasis_util_swap ZUI[toggle_mode_${mod}_${ice}] ZUI[toggle_mode_${mod}_$(( ice+1 ))]
+
+    for t in "${ice_order[@]}"; do
+        noglob -zcrasis_util_swap ZUI[my_tfield4_${ice}_${t}_width] ZUI[my_tfield4_$(( ice+1 ))_${t}_width]
+        noglob -zcrasis_util_swap ZUI[my_tfield4_${ice}_${t}_start] ZUI[my_tfield4_$(( ice+1 ))_${t}_start]
+        noglob -zcrasis_util_swap ZUI[my_tfield4_${ice}_${t}_data] ZUI[my_tfield4_$(( ice+1 ))_${t}_data]
+    done
+
+    return 0
+}
+# }}}
+# FUNCTION: -zcrasis_action_preview {{{
+# Enters or leaves preview alternate-view. It basically
+# sets preview module's instance to be created, once.
+# At the same time, the plugin-list module is set to 0
+# instances. Number of instances is the "module factor".
+-zcrasis_action_preview() {
+    -zui_std_set_mod_factor 4 0
+    -zui_std_set_mod_factor 5 0
+    ZUI[my_in_debug]=0
+    ZUI[my_in_options]=0
+    if [[ "${ZUI[my_in_preview]}" != 1 ]]; then
+        -zui_std_set_mod_factor 2 0
+        -zui_std_set_mod_factor 3 1
+        ZUI[my_in_preview]=1
+        ZUI[COLORING_PATTERN]='(#s)\#?##' ZUI[COLORING_MATCH_MULTIPLE]=0 ZUI[COLORING_COLOR]="$theme[pv-comment]"
+    else
+        -zui_std_set_mod_factor 2 $(( ${#cmdlist} / 3 ))
+        -zui_std_set_mod_factor 3 0
+        ZUI[my_in_preview]=0
+        ZUI[COLORING_PATTERN]=''
+    fi
+
+    if [[ "${ZUI[my_in_preview]}" = "0" && "${ZUI[my_rerender]}" = "1" ]]; then
+        ZUI[my_rerender]=0
+        # Regenerate all modules with active instances - it will be mod1 and mod2
+        reply=( ",all," "" )
+    else
+        # Regenerate menu and preview module
+        reply=( ",mod1_ice1,mod3_ice1," "" )
+    fi
+}
+# }}}
+# FUNCTION: -zcrasis_action_options_view {{{
+# Enters or leaves options alternate-view. It basically
+# sets option module's instance to be created, once (when
+# entering) - by changing the module factor.
+-zcrasis_action_options_view() {
+    -zui_std_set_mod_factor 3 0
+    -zui_std_set_mod_factor 4 0
+    ZUI[my_in_debug]=0
+    ZUI[my_in_preview]=0
+    if [[ "${ZUI[my_in_options]}" != 1 ]]; then
+        -zui_std_set_mod_factor 2 0 # plugin list
+        -zui_std_set_mod_factor 5 1 # options
+        ZUI[my_in_options]=1
+        ZUI[COLORING_PATTERN]=''
+    else
+        -zui_std_set_mod_factor 2 $(( ${#cmdlist} / 3 ))
+        -zui_std_set_mod_factor 5 0
+        ZUI[my_in_options]=0
+    fi
+
+    if [[ "${ZUI[my_in_preview]}" = "0" && "${ZUI[my_rerender]}" = "1" ]]; then
+        ZUI[my_rerender]=0
+        # Regenerate all modules with active instances - it will be mod1 and mod2
+        reply=( ",all," "" )
+    else
+        # Regenerate menu and options module
+        reply=( ",mod1_ice1,mod5_ice1," "" )
+    fi
+}
+# }}}
+# FUNCTION: -zcrasis_action_debug_view {{{
+# Enters or leaves debug view. Plugin-list view is muted
+# by setting module 2 factor to 0 - factor is the number
+# of instances of a module to create, i.e. number of calls
+# to module's generator. Debug module (#4) obtains factor 1.
+# On disable, normal factors are restored.
+-zcrasis_action_debug_view() {
+    -zui_std_set_mod_factor 3 0
+    -zui_std_set_mod_factor 5 0
+    ZUI[my_in_preview]=0
+    ZUI[my_in_options]=0
+
+    if [[ "${ZUI[my_in_debug]}" != 1 ]]; then
+        -zui_std_set_mod_factor 2 0
+        -zui_std_set_mod_factor 4 1
+        ZUI[my_in_debug]=1
+        ZUI[COLORING_PATTERN]=''
+
+        ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZSHRCSIZE>/$(( ${#zshrc} - 5 ))}" )
+        local -a lines
+        lines=( "${(f@)zshrc}" )
+        ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZSHRCLINES>/${#lines}}" )
+
+        { local ver="$(<${ZPLGM[BIN_DIR]}/.git/refs/heads/master)" } 2>/dev/null
+        [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/master)" || ver="${ver[1,7]}"
+        ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZPLGVERSION>/$ver}" )
+
+        { local ver="$(<${ZPLGM[PLUGINS_DIR]}/zdharma---zinit-crasis/.git/refs/heads/master)" } 2>/dev/null
+        [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/master)" || ver="${ver[1,7]}"
+        ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZCRVERSION>/$ver}" )
+    else
+        -zui_std_set_mod_factor 2 $(( ${#cmdlist} / 3 ))
+        -zui_std_set_mod_factor 4 0
+        ZUI[my_in_debug]=0
+    fi
+
+    if [[ "${ZUI[my_in_preview]}" = "0" && "${ZUI[my_rerender]}" = "1" ]]; then
+        ZUI[my_rerender]=0
+        # Regenerate all modules with active instances - it will be mod1 and mod2
+        reply=( ",all," "" )
+    else
+        # Regenerate menu and debug module
+        reply=( ",mod1_ice1,mod4_ice1," "" )
+    fi
+}
+# }}}
+# FUNCTION: -zcrasis_action_delete {{{
+# Removes given entry from $cmdlist and orders full
+# regeneration of document section holding the zinit
+# invocations (the main view). Basically, there will be
+# one instance of module 2 less (the removed one), and
+# remaining instances will get refreshed.
+#
+# $1 - widget id
+# $2 - module's index
+# $3 - module's instance index
+-zcrasis_action_delete() {
+    local id="$1" mod="$2" ice="$3"
+    cmdlist[(ice-1)*3+1,ice*3]=()
+
+    local rtext=","
+    integer i size=$(( ${#cmdlist} / 3 ))
+
+    -zui_std_set_mod_factor 2 "$size"
+
+    -zcrasis_clear_visual_state
+
+    for (( i=1; i<=size; ++ i )); do
+        rtext+="mod${mod}_ice${i},"
+    done
+
+    reply=( "$rtext" "" )
+}
+# }}}
+# FUNCTION: -zcrasis_action_delete_mode {{{
+# Enables ability to delete entries - adds [X] button
+# to each plugin, snippet, external command, etc. (main
+# view).
+-zcrasis_action_delete_mode() {
+    if [[ -n "${ZUI[my_delete_mode]}" ]]; then
+        (( ZUI[my_delete_mode] = 1 - ZUI[my_delete_mode] ))
+    else
+        ZUI[my_delete_mode]=1
+    fi
+
+    -zcrasis_refresh2_all_string
+
+    reply=( "$REPLY" "" )
+}
+# }}}
+# FUNCTION: -zcrasis_action_edit_mode {{{
+# Enables ability to edit entries - strings with plugin name,
+# snippet url, etc. turn into text fields for manual editing.
+-zcrasis_action_edit_mode() {
+    if [[ -n "${ZUI[my_edit_mode]}" ]]; then
+        (( ZUI[my_edit_mode] = 1 - ZUI[my_edit_mode] ))
+    else
+        ZUI[my_edit_mode]=1
+    fi
+
+    -zcrasis_refresh2_all_string
+    reply=( "$REPLY" "" )
+}
+# }}}
+# FUNCTION: -zcrasis_action_compact_mode {{{
+# Switches the entry list to compact-mode. In this mode,
+# only a single line per plugin/snippet/etc. is displayed.
+-zcrasis_action_compact_mode() {
+    if [[ -n "${ZUI[my_compact_mode]}" ]]; then
+        (( ZUI[my_compact_mode] = (ZUI[my_compact_mode]+1) % 3 ))
+    else
+        ZUI[my_compact_mode]=1
+    fi
+
+    -zcrasis_refresh2_all_string
+    reply=( "$REPLY" "" )
+}
+# }}}
+# FUNCTION: -zcrasis_refresh2_all_string {{{
+# Returns string that when passed to ZUI causes to regenerate
+# all instances of module 2 and module 1 (the menu bar).
+-zcrasis_refresh2_all_string() {
+    local rtext=",mod1_ice1,"
+    integer i size=$(( ${#cmdlist} / 3 ))
+
+    for (( i=1; i<=size; ++ i )); do
+        rtext+="mod2_ice${i},"
+    done
+
+    REPLY="$rtext"
+}
+# }}}
+# FUNCTION: -zcrasis_compose {{{
+# Constructs text with zinit commands, optionally
+# including original Zshrc blocks (in order to create
+# full .zshrc). Can skip comments (via $1).
+#
+# $1 - zero or 1 - whether to include comments
+# $2 - zero or 1 - whether to generate complete zshrc
+#
+# $reply - lines of created code
+-zcrasis_compose() {
+    local with_comments="$1" whole="$2" own_quoting="$3"
+    local buf="" tmp comment key
+    integer i size=$(( ${#cmdlist} / 3 ))
+    local -a cmd keys
+    local -A ice_cmd main_cmd
+
+    [[ "$whole" = "1" ]] && {
+        if (( pre_block_end > 0 )); then
+            buf="${(j::)ZCR_PB_ALL[1,pre_block_end+1]}"
+        else
+            buf=""
+        fi
+    }
+
+    for (( i=1; i<=size; ++ i )); do
+        cmd=( "${(@)cmdlist[(i-1)*3+1,i*3]}" )
+        comment="${cmd[1]}"
+        ice_cmd=() main_cmd=()
+        [[ -n "${cmd[2]}" ]] && ice_cmd=( "${(z@)cmd[2]}" )
+        [[ -n "${cmd[3]}" ]] && main_cmd=( "${(z@)cmd[3]}" )
+
+        ice_cmd=( "${(Qkv)ice_cmd[@]}" )
+        main_cmd=( "${(Qkv)main_cmd[@]}" )
+
+        # A horrible thing with $(<...) omitting trailing newlines
+        [[ ${#buf} -gt 0 && ${buf[-1]} != $'\n' && $i -eq 1 ]] && buf+=$'\n'
+
+        # Protection against previous command having trailing spaces before $'\n'
+        local nl=$'\n'
+        comment="${comment/[[:blank:]]##$nl/$nl}"
+
+        # Comment
+        [[ "$with_comments" = "1" && -n "$comment" ]] && {
+            (( i == 1 )) && buf+="${comment##[[:space:]]##}" || buf+="${comment#$nl}"
+        }
+
+        # ICE
+        # Something more than [c]=zinit [sub]=ice [comment]=comment
+        if (( ${#ice_cmd} > 2 && ${+ice_cmd[comment]} == 0 || ${#ice_cmd} > 3 && ${+ice_cmd[comment]} == 1 )); then
+            (( ice_cmd[disabled] || main_cmd[disabled] )) && buf+=": "
+            buf+="zinit ice"
+            for tmp in "${ice_order[@]}"; do
+                case "$tmp" in
+                    (${(~j:|:)${ice_order:|nval_ices}})
+                        if (( !own_quoting )) && [[ -n "${ice_cmd[${tmp}_style]}" ]]; then
+                            [[ -z "${ice_cmd[$tmp]}" && ${+ice_cmd[$tmp]} -eq 1 ]] && { buf+=" $tmp"; continue; }
+                            [[ -z "${ice_cmd[$tmp]}" ]] && continue
+                            local apos="'"
+                            local quoted="${ice_cmd[${tmp}_style]}${ice_cmd[$tmp]}${${${(M)ice_cmd[${tmp}_style]:#\$\'}:+$apos}:-${ice_cmd[${tmp}_style]:#[:=]}}"
+                            buf+=" $tmp$quoted"
+                        else
+                            [[ -z "${ice_cmd[$tmp]}" && ${+ice_cmd[$tmp]} -eq 1 ]] && { buf+=" $tmp"; continue; }
+                            [[ -z "${ice_cmd[$tmp]}" ]] && continue
+                            # Also quote the ice modifier
+                            local opt1="\"${ice_cmd[$tmp]}\""
+                            local opt2="'${ice_cmd[$tmp]}'"
+                            [[ "${${opt1/\$ZPFX/}/\$/}" != "${opt1/\$ZPFX/}" \
+                                # || "${opt1/\\\!/}" != "$opt1"
+                            ]] && \
+                                buf+=" $tmp$opt2" || buf+=" $tmp$opt1"
+                        fi
+                        ;;
+                    (${(~j:|:)nval_ices})
+                        (( ${+ice_cmd[$tmp]} == 0 )) && continue
+                        buf+=" $tmp"
+                        ;;
+                esac
+            done
+
+            # Put tokens other than ice-mod at the
+            # end, in order, with spaces
+            keys=( "${(kon)ice_cmd[@]}" )
+            for key in "${keys[@]}"; do
+                [[ "$key" != custom_* ]] && continue
+                buf+="${ice_cmd[spaces_${key#custom_}]}${ice_cmd[$key]}"
+            done
+
+            [[ "$with_comments" = "1" && -n "${ice_cmd[comment]}" ]] && buf+="${ice_cmd[comment]}"
+            if [[ ${#ice_cmd} -gt 0 || "$i" -lt "$size" ]]; then
+                (( ${+ice_cmd[aspaces]} )) && buf+="${ice_cmd[aspaces]}" || buf+=$'\n'
+            fi
+        fi
+
+        # COMMAND
+        if [[ "${#main_cmd}" -ge 1 ]]; then
+            if [[ "${main_cmd[c]}" = (zplugin|zplg|zinit) ]]; then
+                (( ice_cmd[disabled] || main_cmd[disabled] )) && buf+=": "
+                if [[ "${main_cmd[sub]}" = (light|load|snippet|cdreplay|cdclear) ]]; then
+                    buf+="zinit ${main_cmd[sub]}"
+                    [[ "${main_cmd[--command]}" = "1" ]] && buf+=" --command"
+                    [[ "${main_cmd[-f]}" = "1" ]] && buf+=" -f"
+                    [[ "${main_cmd[-q]}" = "1" ]] && buf+=" -q"
+                    [[ -n "${main_cmd[url]}" ]] && buf+=" ${main_cmd[url]}"
+                    [[ "$with_comments" = "1" && -n "${main_cmd[comment]}" ]] && buf+="${main_cmd[comment]}"
+
+                    if [[ "$i" -lt "$size" ]]; then
+                        (( ${+main_cmd[aspaces]} )) && buf+="${main_cmd[aspaces]}" || buf+=$'\n'
+                    fi
+                else
+                    # Unknown subcommand
+                    local text="${main_cmd[c]}"
+                    [[ -n "${main_cmd[unkn]}" ]] && text+=" ${main_cmd[unkn]}"
+                    keys=( "${(kon)main_cmd[@]}" )
+                    for key in "${keys[@]}"; do
+                        [[ "$key" != arg_* ]] && continue
+                        text+=" ${main_cmd[$key]}"
+                    done
+                    buf+="$text"
+                    if [[ "$i" -lt "$size" ]]; then
+                        (( ${+main_cmd[aspaces]} )) && buf+="${main_cmd[aspaces]}" || buf+=$'\n'
+                    fi
+                fi
+            else
+                local text="${main_cmd[c]}"
+                keys=( "${(kon)main_cmd[@]}" )
+                for key in "${keys[@]}"; do
+                    [[ "$key" != arg_* ]] && continue
+                    text+="${main_cmd[spaces_${key#arg_}]}${main_cmd[$key]}"
+                done
+                buf+="$text"
+                if [[ "$i" -lt "$size" ]]; then
+                    (( ${+main_cmd[aspaces]} )) && buf+="${main_cmd[aspaces]}" || buf+=$'\n'
+                fi
+            fi
+        fi
+    done
+
+    if (( pre_block_end+1 != post_block_begin )); then
+        [[ "$whole" = "1" ]] && buf+="${(j::)ZCR_PB_ALL[post_block_begin,-1]}"
+    fi
+
+    reply=( "${(@f)buf}" )
+}
+# }}}
+# FUNCTION: -zcrasis_action_save {{{
+# Called when [Save] pressed. Composes full .zshrc,
+# performs the save, outputs status message.
+-zcrasis_action_save() {
+    -zcrasis_compose 1 1
+    print -rl -- "${reply[@]}" >| "$zshrc_path"
+    reply=()
+
+    -zui_std_stalog "Saved to:" "\`$zshrc_path'"
+}
+# }}}
+# FUNCTION: -zcrasis_update_main_cmd {{{
+# Updates main entry in given ($3) command packet. There
+# is single command packet per zinit invocation and it
+# contains main command, optionally ICE command, and also
+# optionally a preceding comment.
+#
+# $1 - key to update in the main command
+# $2 - data to store under the key
+# $3 - index of command pack to alter
+-zcrasis_update_main_cmd() {
+    local key="$1" data="$2" idx="$3"
+    local -a cmd
+    local -A main_cmd
+
+    cmd=( "${(@)cmdlist[(idx-1)*3+1,idx*3]}" )
+    if [[ -n "${cmd[3]}" ]]; then
+        main_cmd=( "${(z@)cmd[3]}" )
+        main_cmd=( "${(Qkv)main_cmd[@]}" )
+    fi
+    if [[ "$data" = " delete " ]]; then
+        unset "main_cmd[$key]"
+    else
+        main_cmd[$key]="$data"
+    fi
+
+    cmdlist[idx*3]="${(j: :)${(qkv)main_cmd[@]}}"
+    return 0
+}
+# }}}
+# FUNCTION: -zcrasis_update_ice_cmd {{{
+# Updates ICE entry in given ($3) command packet. There
+# is single command packet per zinit invocation and it
+# contains main command, optionally ICE command, and also
+# optionally a preceding comment.
+#
+# $1 - key to update in the ice command
+# $2 - data to store under the key
+# $3 - index of command pack to alter
+-zcrasis_update_ice_cmd() {
+    local key="$1" data="$2" idx="$3"
+    local -a cmd
+    local -A ice_cmd
+
+    cmd=( "${(@)cmdlist[(idx-1)*3+1,idx*3]}" )
+    if [[ -n "${cmd[2]}" ]]; then
+        ice_cmd=( "${(z@)cmd[2]}" )
+        ice_cmd=( "${(Qkv)ice_cmd[@]}" )
+    fi
+    if [[ "$data" = " delete " ]]; then
+        unset "ice_cmd[$key]"
+    else
+        ice_cmd[$key]="$data"
+    fi
+
+    local -a other
+    other=( "${(@)ice_cmd[(I)(${(~j:|:)ice_order})]}" )
+    if (( ${#other} == 0 )); then
+        ice_cmd=( comment "${ice_cmd[comment]}" )
+    else
+        ice_cmd+=( c "zinit" sub "ice" )
+    fi
+
+    cmdlist[idx*3-1]="${(j: :)${(qkv)ice_cmd[@]}}"
+}
+# }}}
+# FUNCTION: -zcrasis_clear_visual_state {{{
+# Clears generators' working variables to trigger refresh
+# from backend, model-structures (like $cmdlist).
+-zcrasis_clear_visual_state() {
+    integer i size=$(( ${#cmdlist} / 3 ))
+    local -a keys
+    local k
+    for (( i=1; i<=size+15; i++ )); do
+        unset "ZUI[toggle_dis_2_${i}]"
+        unset "ZUI[toggle_command_2_${i}]"
+        unset "ZUI[toggle_force_2_${i}]"
+        unset "ZUI[toggle_mode_2_${i}]"
+
+        unset "ZUI[my_tfield2_${i}_width]"
+        unset "ZUI[my_tfield2_${i}_start]"
+        unset "ZUI[my_tfield2_${i}_data]"
+
+        unset "ZUI[my_lbox2_2_${i}_width]"
+        unset "ZUI[my_lbox2_2_${i}_idx]"
+        unset "ZUI[my_lbox2_2_${i}_opts]"
+
+        unset "ZUI[my_lbox3_2_${i}_width]"
+        unset "ZUI[my_lbox3_2_${i}_idx]"
+        unset "ZUI[my_lbox3_2_${i}_opts]"
+
+        keys=( ${ZUI[(I)my_tfield4_${i}_*_width]} ${ZUI[(I)my_tfield4_${i}_*_start]} ${ZUI[(I)my_tfield4_${i}_*_data]} )
+        for k in "${keys[@]}"; do
+            unset "ZUI[$k]"
+        done
+    done
+}
+# }}}
+# FUNCTION: -zcrasis_action_add_snippet {{{
+# Adds snippet to $cmdlist and refreshes the view.
+# So it creates a packet with "zplg snippet ..."
+# main command.
+-zcrasis_action_add_snippet() {
+    local url="${ZUI[my_tfield3_data]}"
+    local -A main_cmd
+
+    [[ -z "$url" || "$url" = \<*\> ]] && { -zui_std_stalog "" "" "" "WARNING: " "" "Aborted, please enter a proper snippet URL"; return; }
+    [[ "$url" != /* && "$url" != (http|ftp|https|OMZ|PZT):* ]] && -zui_std_stalog "" "" "" "WARNING: " "" "Snippet isn't absolute path or URL"
+
+    main_cmd[c]="zinit"
+    main_cmd[sub]="snippet"
+    main_cmd[url]="$url"
+
+    -zcrasis_dbg_msg "Prepending snippet (data: ${(kv)main_cmd})"
+
+    cmdlist[1,0]=( "" "" "${(j: :)${(qkv)main_cmd[@]}}" )
+    -zui_std_set_mod_factor 2 $(( ${#cmdlist} / 3 ))
+    -zcrasis_clear_visual_state
+
+    -zcrasis_refresh2_all_string
+    reply=( "$REPLY" "" )
+}
+# }}}
+# FUNCTION: -zcrasis_action_add_plugin {{{
+# Adds plugin to $cmdlist and refreshes the view. So it
+# creates a packet with "zplg load ..." main command.
+# Ice command can be added by editing actions.
+-zcrasis_action_add_plugin() {
+    local url="${ZUI[my_tfield3_data]}"
+    local -A main_cmd
+
+    [[ -z "$url" || "$url" = \<*\> ]] && { -zui_std_stalog "" "" "" "WARNING: " "" "Aborted, please enter or select a proper plugin ID"; return; }
+    [[ "$url" != [a-zA-Z0-9-]##/[a-zA-Z0-9-]## ]] && -zui_std_stalog "" "" "" "WARNING: " "" "Plugin ID isn't of the form \`user/plugin'"
+
+    main_cmd[c]="zinit"
+    main_cmd[sub]="load"
+    main_cmd[url]="$url"
+
+    -zcrasis_dbg_msg "Prepending plugin (data: ${(kv)main_cmd})"
+
+    cmdlist[1,0]=( "" "" "${(j: :)${(qkv)main_cmd[@]}}" )
+    -zui_std_set_mod_factor 2 $(( ${#cmdlist} / 3 ))
+    -zcrasis_clear_visual_state
+
+    -zcrasis_refresh2_all_string
+    reply=( "$REPLY" "" )
+}
+# }}}
+# FUNCTION: -zcrasis_info {{{
+# Shows description (in status window) of the selected plugin
+-zcrasis_info() {
+    [[ "$1" != <-> ]] && return
+    (( $1 <= 1 || $1 > ${#chosen_descriptions} )) && return
+    -zui_std_stalog "" "" "" "" "" "${chosen_descriptions[$1]}"
+}
+# }}}
+# FUNCTION: -zcrasis_generator_0 {{{
+# ZUI generator that creates top menu (its hypertext).
+# The menu can differ depending on current view mode
+# (normal, preview, debug).
+-zcrasis_generator_0() {
+    local mod="$1" ice="$2"
+    local pv_col op_col dg_col dl_col ed_col co_col
+    local -a optional
+
+    reply=()
+
+    local act_fg_bg="$theme[menu-active-button-fg]$theme[menu-active-button-bg]"
+    local act_fg_bg2="$theme[menu2-active-button-fg]$theme[menu2-active-button-bg]"
+
+    -zui_util_map_bools '[[ ${ZUI[my_in_preview]} = 1 ]]' pv_col \
+                                                "$act_fg_bg" \
+                                                "$theme[preview]$theme[menu-bg]"
+    -zui_util_map_bools '[[ ${ZUI[my_in_options]} = 1 ]]' op_col \
+                                                "$act_fg_bg" \
+                                                "$theme[options]$theme[menu-bg]"
+    -zui_util_map_bools '[[ ${ZUI[my_in_debug]} = 1 ]]' dg_col \
+                                                "$act_fg_bg" \
+                                                "$theme[debug]$theme[menu-bg]"
+    -zui_util_map_bools '[[ "${ZUI[my_delete_mode]}" = "1" ]]' dl_col \
+                                                "$act_fg_bg2" \
+                                                "$theme[delete-mode]$theme[menu2-bg]"
+    -zui_util_map_bools '[[ "${ZUI[my_edit_mode]}" = "1" ]]' ed_col \
+                                                "$act_fg_bg2" \
+                                                "$theme[edit-mode]$theme[menu2-bg]"
+    -zui_util_map_bools '[[ "${ZUI[my_compact_mode]}" = [12] ]]' co_col \
+                                                "$act_fg_bg2" \
+                                                "$theme[compact-mode]$theme[menu2-bg]"
+
+    # 1. - 5.
+    local close
+    [[ -n "$theme[menu-bg]" || -n "$theme[reload]" ]] && close="${ZUI[FMT_END]}" || close=""
+    -zui_std_button "reload" "$theme[reload]$theme[menu-bg]$theme[reload-text]$close" -zcrasis_action_reload
+
+    [[ -n "$theme[menu-bg]" || -n "$theme[save]" ]] && close="${ZUI[FMT_END]}" || close=""
+    -zui_std_button "save" "$theme[save]$theme[menu-bg]$theme[save-text]$close" '-zcrasis_action_save; internal=1'
+
+    -zui_std_button "preview" "${pv_col}$theme[preview-text]${pv_col:+${ZUI[FMT_END]}}" -zcrasis_action_preview
+    -zui_std_button "options" "${op_col}$theme[options-text]${op_col:+${ZUI[FMT_END]}}" -zcrasis_action_options_view
+    -zui_std_button "debug" "${dg_col}$theme[debug-text]${dg_col:+${ZUI[FMT_END]}}" -zcrasis_action_debug_view
+
+    (( ${ZUI[my_in_preview]} + ZUI[my_in_debug] + ZUI[my_in_options] == 0 )) && {
+        # Variables of the text field
+        (( ${+ZUI[my_tfield3_width]} == 0 )) && ZUI[my_tfield3_width]=${theme[new-id-url-width]}
+        (( ${+ZUI[my_tfield3_start]} == 0 )) && ZUI[my_tfield3_start]=1
+        (( ${+ZUI[my_tfield3_data]} == 0 )) && ZUI[my_tfield3_data]="$theme[new-id-url-text]"
+
+        # 1.
+        noglob -zui_std_text_field "tfield3_$mod" ZUI[my_tfield3_width] ZUI[my_tfield3_start] ZUI[my_tfield3_data] "" "" "" '' optional
+
+        # Variables of the list box
+        (( ${+ZUI[my_lbox1_width]} == 0 )) && ZUI[my_lbox1_width]=$(( 25 < ${#chosen_plugins[1]} ? ${#chosen_plugins[1]} : 25 ))
+        (( ${+ZUI[my_lbox1_idx]} == 0 )) && ZUI[my_lbox1_idx]=1
+        (( ${+ZUI[my_lbox1_opts]} == 0 )) && ZUI[my_lbox1_opts]="${(j:;:)chosen_plugins}"
+
+        # 2.
+        noglob -zui_std_list_box "lbox1_$mod" ZUI[my_lbox1_width] ZUI[my_lbox1_idx] ZUI[my_lbox1_opts] "" "" "" 'ZUI[my_tfield3_data]="${${(s:;:)ZUI[my_lbox1_opts]}[${ZUI[my_lbox1_idx]}]}"; [[ "${ZUI[my_lbox1_idx]}" = 1 ]] && ZUI[my_tfield3_data]=""; -zcrasis_info ${ZUI[my_lbox1_idx]};' optional
+
+        # 3. - 4.
+        -zui_std_button "snippet" "$theme[add-snippet-text-c]" -zcrasis_action_add_snippet optional
+        -zui_std_button "plugin" "$theme[add-plugin-text-c]" -zcrasis_action_add_plugin optional
+
+        # 5. - 7.
+        (( ZUI[my_compact_mode] > 0 )) && {
+            local cm_index="${ZUI[my_compact_mode]}"
+            [[ "${${theme[compact-mode-text]}[-1]}" = " " ]] && cm_index+=" " || cm_index=" $cm_index"
+        }
+        -zui_std_button "delete_mode" "${dl_col}$theme[delete-mode-text]${dl_col:+${ZUI[FMT_END]}}" -zcrasis_action_delete_mode optional
+        -zui_std_button "edit_mode" "${ed_col}$theme[edit-mode-text]${ed_col:+${ZUI[FMT_END]}}" -zcrasis_action_edit_mode optional
+        -zui_std_button "compact_mode" "${co_col}$theme[compact-mode-text]$cm_index${co_col:+${ZUI[FMT_END]}}" -zcrasis_action_compact_mode optional
+
+        # 8.
+        -zui_std_special_text "$theme[gold-choose-text-c]" optional
+
+        [[ -n "$theme[menu2-bg]" ]] && local spc2="$theme[menu2-bg] ${ZUI[FMT_END]}" || local spc2=" "
+
+        local line1="${optional[5]}$spc2${optional[6]}$spc2${optional[7]}"
+        local line2="${optional[1]} ${optional[3]} ${optional[4]}  ${optional[8]} ${optional[2]}"
+    } || {
+        local line1="" line2=""
+    }
+
+    [[ -n "$theme[menu-bg]" ]] && local spc="$theme[menu-bg] ${ZUI[FMT_END]}" || local spc=" "
+    reply=(
+        "${reply[1]}$spc${reply[2]}$spc${reply[3]}$spc${reply[4]}$spc${reply[5]}"
+        "$line1"
+        ""
+        "$line2"
+    )
+
+    [[ -z "$line1" && -z "$line2" ]] && reply[2,4]=()
+
+    # Non-selectable lines   Hops to jump with [ and ]   Local anchors  Spacing
+    reply2=( )               reply3=( 1 )                reply4=( )     reply5="0"
+}
+# }}}
+# FUNCTION: -zcrasis_generator_A {{{
+# ZUI generator that creates document block for each plugin,
+# snippet or other command. This is module #2, each document
+# block is an instance of this module (separated by blank
+# lines horizontally, by ZUI normal operation).
+-zcrasis_generator_A() {
+    local mod="$1" ice="$2" arg="$3" comment t ice_add_remove
+    local -a cmd output
+    local -A ice_cmd main_cmd
+    local var_name1 var_name2
+    local num smarker_text pmarker_text mode_text command_col force_col disabled_text
+
+    # Ice addition request?
+    if [[ "$arg" = newice-* ]]; then
+        local newice="${arg#newice-}"
+        -zui_std_strip_color_codes "$newice"
+        newice="$REPLY"
+
+        -zcrasis_update_ice_cmd "$newice" "<empty>" "$ice"
+    elif [[ "$arg" = delice-* ]]; then
+        local delice="${arg#delice-}"
+        -zui_std_strip_color_codes "$delice"
+        delice="$REPLY"
+        -zcrasis_update_ice_cmd "$delice" " delete " "$ice"
+    fi
+
+    cmd=( "${(@)cmdlist[(ice-1)*3+1,ice*3]}" )
+    comment="${cmd[1]}"
+    [[ -n "${cmd[2]}" ]] && ice_cmd=( "${(z@)cmd[2]}" )
+    [[ -n "${cmd[3]}" ]] && main_cmd=( "${(z@)cmd[3]}" )
+
+    ice_cmd=( "${(Qkv)ice_cmd[@]}" )
+    main_cmd=( "${(Qkv)main_cmd[@]}" )
+
+    output=()
+
+    # Command number
+    [[ -n "$theme[index]" ]] && num="$theme[index]${(l:2::0:)ice}${ZUI[FMT_END]}." || num="${(l:2::0:)ice}."
+
+    # "Up", "Down"
+    var_name1="my_mod${mod}_ice$(( ice-1 ))_size"
+    var_name2="my_mod${mod}_ice$(( ice+1 ))_size"
+    local gap
+    (( gap = ZUI[my_compact_mode] == 2 ? 0 : 1 ))
+
+    # 1. Up
+    if [[ "$ice" -gt 1 ]]; then
+        (( theme[ud-unicode-bool] )) && local up="$theme[up-unicode-c]" || local up="$theme[up-text-c]"
+        -zui_std_anchor "move_up_${mod}_${ice}" "1-${gap}-${var_name1}" "" ",mod${mod}_ice${ice},mod${mod}_ice$(( ice - 1 ))," "" "$up" "-zcrasis_action_move_up $mod $ice" output
+    else
+        (( theme[ud-unicode-bool] )) && local up="$theme[up-unicode]" || local up="$theme[up-text]"
+        output+=( "$up" )
+    fi
+
+    # 2. Down
+    if [[ "$ice" -lt $(( ${#cmdlist} / 3 )) ]]; then
+        (( theme[ud-unicode-bool] )) && local down="$theme[down-unicode-c]" || local down="$theme[down-text-c]"
+        -zui_std_anchor "move_down_${mod}_${ice}" "1+${gap}+${var_name2}" "" ",mod${mod}_ice${ice},mod${mod}_ice$(( ice + 1 ))," "" "$down" "-zcrasis_action_move_down $mod $ice" output
+    else
+        (( theme[ud-unicode-bool] )) && local down="$theme[down-unicode]" || local down="$theme[down-text]"
+        output+=( "$down" )
+    fi
+
+    # 3. "Disabled" or "Enabled"
+    (( theme[ed-unicode-bool] )) && local enabled="$theme[enabled-unicode-c]" || local enabled="$theme[enabled-text-c]"
+    (( theme[ed-unicode-bool] )) && local disabled="$theme[disabled-unicode-c]" || local disabled="$theme[disabled-text-c]"
+
+    [[ -z "${ZUI[toggle_dis_${mod}_${ice}]}" ]] && ZUI[toggle_dis_${mod}_${ice}]="${main_cmd[disabled]:-0}" || { -zcrasis_update_main_cmd disabled "${ZUI[toggle_dis_${mod}_${ice}]}" "$ice"; -zcrasis_update_ice_cmd disabled "${ZUI[toggle_dis_${mod}_${ice}]}" "$ice"; }
+    -zui_util_map_bools "[[ \"${ZUI[toggle_dis_${mod}_${ice}]}\" = 1 ]]" "disabled_text" "$disabled" "$enabled"
+    -zui_util_map_bools "[[ \"${ZUI[toggle_dis_${mod}_${ice}]}\" = 1 && \"${ZUI[my_compact_mode]}\" = [12] ]]" "smarker_text" "$theme[s-marker-disabled-text-c]" "$theme[s-marker-text-c]"
+    -zui_util_map_bools "[[ \"${ZUI[toggle_dis_${mod}_${ice}]}\" = 1 && \"${ZUI[my_compact_mode]}\" = [12] ]]" "pmarker_text" "$theme[p-marker-disabled-text-c]" "$theme[p-marker-text-c]"
+
+    -zui_std_button "toggle_dis_${mod}_${ice}" "$disabled_text" '(( ZUI[toggle_dis_'"${mod}_${ice}"']=1-${ZUI[toggle_dis_'"${mod}_${ice}"']} )); -zui_std_fly_mod_regen '"$mod $ice"'; internal=1' output
+
+    # 4. Delete
+    (( theme[delete-unicode-bool] )) && local delete="$theme[delete-unicode-c]" || local delete="$theme[delete-text-c]"
+    -zui_std_button_ext "delete_${mod}_${ice}" "$mod" "$ice" "" "" "$delete" -zcrasis_action_delete output
+    if (( ZUI[my_delete_mode] )); then
+        output[4]+=" "
+    else
+        output[4]=""
+    fi
+
+    # Save for layout
+    local w_up="$output[1]" w_down="$output[2]" w_disable="$output[3]" w_delete="${output[4]:-    }"
+
+    #
+    # 5. Add ice
+    #
+
+    [[ -n "$theme[plus-ice]" ]] && t="$theme[plus-ice-text-c]" || t="$theme[plus-ice-text]"
+    local -a existing toadd
+    existing=( "${(@)ice_cmd[(I)(${(~j:|:)ice_order})]}" )
+    toadd=( ${(@)ice_order:|existing} )
+
+    # Variables of the list box
+    ZUI[my_lbox2_${mod}_${ice}_width]=${#t}
+    ZUI[my_lbox2_${mod}_${ice}_idx]=1
+    ZUI[my_lbox2_${mod}_${ice}_opts]="$t;${(j:;:)toadd}"
+
+    (( ${#toadd} )) && noglob -zui_std_list_box "lbox2_${mod}_${ice}" ZUI[my_lbox2_${mod}_${ice}_width] ZUI[my_lbox2_${mod}_${ice}_idx] ZUI[my_lbox2_${mod}_${ice}_opts] "" "" "" '-zui_std_fly_mod_regen '$mod' '$ice' newice-"${${(s:;:)ZUI[my_lbox2_'${mod}'_'${ice}'_opts]}[${ZUI[my_lbox2_'${mod}'_'${ice}'_idx]}]}"; ZUI[my_lbox2_'${mod}'_'${ice}'_idx]=1;' output || output+=( "" )
+
+    #
+    # 6. Remove ice
+    #
+
+    [[ -n "$theme[minus-ice]" ]] && t="$theme[minus-ice-text-c]" || t="$theme[minus-ice-text]"
+    local -a toremove
+    toremove=( ${(@)ice_order:*existing} )
+
+    # Variables of the list box
+    ZUI[my_lbox3_${mod}_${ice}_width]=${#t}
+    ZUI[my_lbox3_${mod}_${ice}_idx]=1
+    ZUI[my_lbox3_${mod}_${ice}_opts]="$t;${(j:;:)toremove}"
+
+    (( ${#toremove} )) && noglob -zui_std_list_box "lbox3_${mod}_${ice}" ZUI[my_lbox3_${mod}_${ice}_width] ZUI[my_lbox3_${mod}_${ice}_idx] ZUI[my_lbox3_${mod}_${ice}_opts] "" "" "" '-zui_std_fly_mod_regen '$mod' '$ice' delice-"${${(s:;:)ZUI[my_lbox3_'${mod}'_'${ice}'_opts]}[${ZUI[my_lbox3_'${mod}'_'${ice}'_idx]}]}"; ZUI[my_lbox3_'${mod}'_'${ice}'_idx]=1;' output || output+=( "" )
+
+    if [[ -n "${output[-2]}" && -n "${output[-1]}" ]]; then
+        ice_add_remove="${output[-2]} ${output[-1]}"
+    else
+        ice_add_remove="${output[-2]}${output[-1]}"
+    fi
+
+    ##
+    ## Ice list
+    ##
+
+    local -a ioutput
+    integer index=0
+    # Something more than [c]=zinit [sub]=ice [comment]=comment
+    (( ${#ice_cmd} > 2 && ${+ice_cmd[comment]} == 0 || ${#ice_cmd} > 3 && ${+ice_cmd[comment]} == 1 )) && {
+        ioutput=( "${theme[i-indent-text-c]-    }" )
+        for t in "${ice_order[@]}"; do
+            index+=1
+            case "$t" in
+                (${(~j:|:)${ice_order:|nval_ices}})
+                    [[ -z "${ice_cmd[$t]}" ]] && continue
+                    # Variables of the text field
+                    (( ${+ZUI[my_tfield4_${ice}_${t}_width]} == 0 )) && ZUI[my_tfield4_${ice}_${t}_width]=$(( ${#ice_cmd[$t]} + 1 ))
+                    (( ${+ZUI[my_tfield4_${ice}_${t}_start]} == 0 )) && ZUI[my_tfield4_${ice}_${t}_start]=1
+                    (( ${+ZUI[my_tfield4_${ice}_${t}_data]} == 0 )) && ZUI[my_tfield4_${ice}_${t}_data]="${ice_cmd[$t]}"
+
+                    (( ${+theme[i-id-${index}]} )) && {
+                        [[ -n "$theme[i-id-${index}]" ]] && ioutput+=( "$theme[i-id-${index}]$t${ZUI[FMT_END]}:" ) || ioutput+=( "$t" )
+                    } || {
+                        [[ -n "$theme[i-unknown]" ]] && ioutput+=( "$theme[i-unknown]$t${ZUI[FMT_END]}" ) || ioutput+=( "$t" )
+                    }
+                    noglob -zui_std_text_field "tfield4_${mod}_${ice}_${t}" ZUI[my_tfield4_${ice}_${t}_width] ZUI[my_tfield4_${ice}_${t}_start] ZUI[my_tfield4_${ice}_${t}_data] "" "" "" '-zcrasis_update_ice_cmd '$t' "${ZUI[my_tfield4_'${ice}'_'$t'_data]}" '$ice ioutput
+                    ;;
+                (${(~j:|:)nval_ices})
+                    (( ${+ice_cmd[$t]} == 0 )) && continue
+                    if [[ -n "$theme[i-${t}-text-c]" ]]; then
+                        ioutput+=( "$theme[i-${t}-text-c]" )
+                    else
+                        ioutput+=( `printf "$theme[i-unknown-text-c]" ${t}` )
+                    fi
+                    ;;
+            esac
+        done
+    }
+
+    reply=()
+    if [[ "${main_cmd[sub]}" = "snippet" ]]; then
+        #
+        # 7. Url, edited in edit-mode
+        #
+
+        if [[ "${ZUI[my_edit_mode]}" = 1 ]]; then
+            # Variables of the text field
+            (( ${+ZUI[my_tfield2_${ice}_width]} == 0 )) && ZUI[my_tfield2_${ice}_width]=80
+            (( ${+ZUI[my_tfield2_${ice}_start]} == 0 )) && ZUI[my_tfield2_${ice}_start]=1
+            ZUI[my_tfield2_${ice}_data]="${main_cmd[url]}"
+
+            noglob -zui_std_text_field "tfield2_${mod}_${ice}" ZUI[my_tfield2_${ice}_width] ZUI[my_tfield2_${ice}_start] ZUI[my_tfield2_${ice}_data] "" "" "" '-zcrasis_update_main_cmd url "${ZUI[my_tfield2_'${ice}'_data]}" '$ice output
+        else
+            [[ -n "$theme[s-url]" ]] && output+=( "$theme[s-url]${main_cmd[url]}${ZUI[FMT_END]}" ) || output+=( "${main_cmd[url]}" )
+        fi
+
+        #
+        # 8. command on/off
+        #
+
+        [[ -z "${ZUI[toggle_command_${mod}_${ice}]}" ]] && ZUI[toggle_command_${mod}_${ice}]="${main_cmd[--command]:-0}" || -zcrasis_update_main_cmd --command "${ZUI[toggle_command_${mod}_${ice}]}" $ice
+        -zui_util_map_bools "[[ \"${ZUI[toggle_command_${mod}_${ice}]}\" = 1 ]]" "command_col" "${ZUI[BG_BLUE]}" "$theme[s-as-command]"
+        local command_text="${command_col}command${ZUI[FMT_END]}"
+        -zui_std_button "toggle_command_${mod}_${ice}" "$command_text" '(( ZUI[toggle_command_'"${mod}_${ice}"']=1-${ZUI[toggle_command_'"${mod}_${ice}"']} )); -zui_std_fly_mod_regen '"$mod $ice"'; internal=1' output
+
+        #
+        # 9. force on/off
+        #
+
+        [[ -z "${ZUI[toggle_force_${mod}_${ice}]}" ]] && ZUI[toggle_force_${mod}_${ice}]="${main_cmd[-f]:-0}" || -zcrasis_update_main_cmd -f "${ZUI[toggle_force_${mod}_${ice}]}" $ice
+        -zui_util_map_bools "[[ \"${ZUI[toggle_force_${mod}_${ice}]}\" = 1 ]]" "force_col" "${ZUI[BG_BLUE]}" "$theme[s-force]"
+        local force_text="${force_col}force${ZUI[FMT_END]}"
+        -zui_std_button "toggle_force_${mod}_${ice}" "$force_text" '(( ZUI[toggle_force_'"${mod}_${ice}"']=1-${ZUI[toggle_force_'"${mod}_${ice}"']} )); -zui_std_fly_mod_regen '"$mod $ice"'; internal=1' output
+
+        #
+        # The Resulting Document
+        #
+
+        local w_url="$output[7]" w_ascommand="$output[8]" w_force="$output[9]"
+
+        eval "$theme[layout]"
+        [[ "${ZUI[my_compact_mode]}" = [12] ]] && reply=( "${w_snippet_item_short[@]}" ) || reply=( "${w_snippet_item_long[@]}" )
+    elif [[ "${main_cmd[sub]}" = (light|load) ]]; then
+        #
+        # 7. Url, edited in edit-mode
+        #
+
+        if [[ "${ZUI[my_edit_mode]}" = 1 ]]; then
+            # Variables of the text field
+            (( ${+ZUI[my_tfield2_${ice}_width]} == 0 )) && ZUI[my_tfield2_${ice}_width]=35
+            (( ${+ZUI[my_tfield2_${ice}_start]} == 0 )) && ZUI[my_tfield2_${ice}_start]=1
+            ZUI[my_tfield2_${ice}_data]="${main_cmd[url]}"
+
+            noglob -zui_std_text_field "tfield2_${mod}_${ice}" ZUI[my_tfield2_${ice}_width] ZUI[my_tfield2_${ice}_start] ZUI[my_tfield2_${ice}_data] "" "" "" '-zcrasis_update_main_cmd url "${ZUI[my_tfield2_'${ice}'_data]}" '$ice output
+        else
+            [[ -n "$theme[p-id]" ]] && output+=( "$theme[p-id]${main_cmd[url]}${ZUI[FMT_END]}" ) || output+=( "${main_cmd[url]}" )
+        fi
+
+        #
+        # 8. Mode: light or normal ("load")
+        #
+
+        [[ -z "${ZUI[toggle_mode_${mod}_${ice}]}" ]] && ZUI[toggle_mode_${mod}_${ice}]="${main_cmd[sub]}" || -zcrasis_update_main_cmd sub "${ZUI[toggle_mode_${mod}_${ice}]}" $ice
+        -zui_util_map_bools "[[ \"${ZUI[toggle_mode_${mod}_${ice}]}\" = light ]]" "mode_text" "$theme[p-mode-text-c-1]" "$theme[p-mode-text-c-2]"
+        -zui_std_button "toggle_mode_${mod}_${ice}" "$mode_text" '[[ ${ZUI[toggle_mode_'"${mod}_${ice}"']} = light ]] && ZUI[toggle_mode_'"${mod}_${ice}"']=load || ZUI[toggle_mode_'"${mod}_${ice}"']=light; -zui_std_fly_mod_regen '"$mod $ice"'; internal=1' output
+
+        #
+        # 9. Compile
+        #
+
+        -zui_std_button "compile_${mod}_${ice}" "$theme[p-compile-text-c]" 'zcurses end; zinit compile '${main_cmd[url]}'; print Done.; builtin read tmp; zcurses refresh;' output
+
+        #
+        # The Resulting Document
+        #
+
+        local w_plugin="$output[7]" w_mode="$output[8]" w_compile="$output[9]"
+
+        eval "$theme[layout]"
+        [[ "${ZUI[my_compact_mode]}" = [12] ]] && reply=( "${w_plugin_item_short[@]}" ) || reply=( "${w_plugin_item_long[@]}" )
+    elif [[ "${main_cmd[sub]}" = "cdreplay" ]]; then
+        local w_q="${main_cmd[-q]}"
+        eval "$theme[layout]"
+        [[ "${ZUI[my_compact_mode]}" = [12] ]] && reply=( "${w_cdreplay_item_short[@]}" ) || reply=( "${w_cdreplay_item_long[@]}" )
+    elif [[ "${main_cmd[sub]}" = "cdclear" ]]; then
+        local w_q="${main_cmd[-q]}"
+        eval "$theme[layout]"
+        [[ "${ZUI[my_compact_mode]}" = [12] ]] && reply=( "${w_cdclear_item_short[@]}" ) || reply=( "${w_cdclear_item_long[@]}" )
+    else
+        # Custom command
+        local -a keys
+        local key text="${main_cmd[c]}"
+        [[ -n "${main_cmd[unkn]}" ]] && text+=" ${main_cmd[unkn]}"
+        keys=( "${(kon)main_cmd[@]}" )
+        for key in "${keys[@]}"; do
+            [[ "$key" != arg_* ]] && continue
+            text+=" ${main_cmd[$key]}"
+        done
+        [[ -n "${main_cmd[unkn]}" ]] && text+=" (${ZUI[RED]}unknown Zinit subcommand${ZUI[FMT_END]})"
+
+        eval "$theme[layout]"
+        [[ "${ZUI[my_compact_mode]}" = [12] ]] && reply=( "${w_other_item_short[@]}" ) || reply=( "${w_other_item_long[@]}" )
+    fi
+
+    # Instead of debugging ZUI, I've added '-1' here
+    var_name1="my_mod${mod}_ice${ice}_size"
+    : "${(P)var_name1::=${#reply}}"
+
+    # Non-selectable lines   Hops to jump with [ and ]   Local anchors
+    reply2=( )               reply3=( 1 )                reply4=( move_up_${mod}_${ice} move_down_${mod}_${ice} )
+
+    # Module's spacing, the blank lines at top
+    [[ "${ZUI[my_compact_mode]}" != "2" || "$ice" -eq 1 ]] && reply5="1" || reply5="0"
+}
+# }}}
+# FUNCTION: -zcrasis_generator_B {{{
+# ZUI generator that creates preview text. This is module 3.
+# There is 0 or 1 instance of this module, depending on chosen
+# view.
+-zcrasis_generator_B() {
+    local mod="$1" ice="$2" arg="$3" sh_col di_col
+
+    -zui_util_map_bools '[[ ${ZUI[my_incl_comm]} != 1 ]];[[ ${ZUI[my_show_diff]} != 1 ]]' \
+                        "sh_col;di_col" \
+                         "$theme[pv-main-buttons]" "${ZUI[BG_BLUE]}"
+
+    local -a output
+    -zui_std_rc_button "comments_${mod}_${ice}" "${sh_col}Show Comments${sh_col:+${ZUI[FMT_END]}}" 'internal=1; (( ZUI[my_incl_comm]=1 - ZUI[my_incl_comm] )); -zui_std_fly_mod_regen '$mod' '$ice' commtoggle' output
+    -zui_std_rc_button "clipboard_${mod}_${ice}" "$theme[pv-main-buttons]Copy To Clipboard${theme[pv-main-buttons]:+${ZUI[FMT_END]}}" 'internal=1; -zui_std_fly_mod_regen '$mod' '$ice' copy' output
+    -zui_std_rc_button "difftoggle_${mod}_${ice}" "${di_col}Diff Mode${di_col:+${ZUI[FMT_END]}}" 'internal=1; (( ZUI[my_show_diff]=1 - ZUI[my_show_diff] )); -zui_std_fly_mod_regen '$mod' '$ice' difftoggle' output
+
+    if (( ZUI[my_show_diff] )); then
+        if [[ "$arg" = "difftoggle" || "$arg" = "commtoggle" ]]; then
+            -zcrasis_compose "${ZUI[my_incl_comm]}" 1
+            print -rl "${reply[@]}" >! "$ZCRASIS_REPO_DIR"/zshrc_test
+        fi
+        reply=( "${(f@)"$( diff -u $zshrc_path $ZCRASIS_REPO_DIR/zshrc_test )"}" )
+    else
+        -zcrasis_compose "${ZUI[my_incl_comm]}"
+    fi
+
+    if [[ "$arg" = "copy" ]]; then
+        if (( ${+commands[xsel]} )); then
+            print -rl -- "${reply[@]}" | command xsel --clipboard --input
+            -zui_std_stalog "Copied ${#reply} lines of text"
+        elif (( ${+commands[pbcopy]} )); then
+            print -rl -- "$reply[@]" | command pbcopy
+            -zui_std_stalog "Copied ${#reply} lines of text"
+        else
+            -zui_std_stalog "No clipboard tool found (checked for pbcopy and xsel), didn't copy"
+        fi
+    fi
+
+    reply[1,0]=( "${output[1]} ${output[2]} ${output[3]}" "" )
+
+    # Non-selectable lines   Hops to jump with [ and ]   Local anchors
+    reply2=( )               reply3=( 1 )                reply4=( )
+}
+# }}}
+# FUNCTION: -zcrasis_generator_OPT {{{
+-zcrasis_generator_OPT() {
+    local -a thms tnames layts lnames
+    thms=( "$ZCRASIS_REPO_DIR"/themes/*.cr-theme )
+    tnames=( "${(o@)${thms[@]:t}%.cr-theme}" )
+    layts=( "$ZCRASIS_REPO_DIR"/layouts/*.cr-layout )
+    lnames=( "${(o@)${layts[@]:t}%.cr-layout}" )
+
+    reply=()
+
+    # Switch theme list box
+    (( ${+ZUI[my_lbox4_width]} == 0 )) && ZUI[my_lbox4_width]=18
+    ZUI[my_lbox4_idx]=${tnames[(i)$CRASIS_THEME]}
+    eval "ZUI[my_lbox4_opts]=\"$theme[o-theme-box]\${(j:${ZUI[FMT_END]};${theme[o-theme-box]}:)tnames}${ZUI[FMT_END]}\""
+    noglob -zui_std_list_box "lbox4_$mod" ZUI[my_lbox4_width] ZUI[my_lbox4_idx] ZUI[my_lbox4_opts] "" "" "" ''
+    -zui_std_button "switch_theme" "$theme[o-switch-text-c]" 'ZUI[my_rerender]=1; -zcrasis_switch_theme "${${(s:;:)ZUI[my_lbox4_opts]}[${ZUI[my_lbox4_idx]}]}"; reply=( ",all," "" );'
+
+    # Switch layout list box
+    (( ${+ZUI[my_lbox8_width]} == 0 )) && ZUI[my_lbox8_width]=18
+    ZUI[my_lbox8_idx]=${lnames[(i)$CRASIS_LAYOUT]}
+    eval "ZUI[my_lbox8_opts]=\"$theme[o-layout-box]\${(j:${ZUI[FMT_END]};${theme[o-layout-box]}:)lnames}${ZUI[FMT_END]}\""
+    noglob -zui_std_list_box "lbox8_$mod" ZUI[my_lbox8_width] ZUI[my_lbox8_idx] ZUI[my_lbox8_opts] "" "" "" ''
+    -zui_std_button "switch_layout" "$theme[o-switch2-text-c]" 'ZUI[my_rerender]=1; -zcrasis_switch_layout "${${(s:;:)ZUI[my_lbox8_opts]}[${ZUI[my_lbox8_idx]}]}"; reply=( ",all," "" );'
+
+    # Up / Down list box
+    (( ${+ZUI[my_lbox5_width]} == 0 )) && ZUI[my_lbox5_width]=22
+    ZUI[my_lbox5_idx]=$(( theme[ud-unicode-bool] + 1 ))
+    ZUI[my_lbox5_opts]="$theme[up-text-c]/$theme[down-text-c];$theme[up-unicode-c]/$theme[down-unicode-c]"
+
+    noglob -zui_std_list_box "lbox5_$mod" ZUI[my_lbox5_width] ZUI[my_lbox5_idx] ZUI[my_lbox5_opts] "" "" "" 'ZUI[my_rerender]=1; theme[ud-unicode-bool]=$(( ZUI[my_lbox5_idx] - 1 ));'
+
+    # Enabled / Disabled list box
+    (( ${+ZUI[my_lbox6_width]} == 0 )) && ZUI[my_lbox6_width]=22
+    ZUI[my_lbox6_idx]=$(( theme[ed-unicode-bool] + 1 ))
+    ZUI[my_lbox6_opts]="$theme[enabled-text-c]/$theme[disabled-text-c];$theme[enabled-unicode-c]/$theme[disabled-unicode-c]"
+
+    noglob -zui_std_list_box "lbox6_$mod" ZUI[my_lbox6_width] ZUI[my_lbox6_idx] ZUI[my_lbox6_opts] "" "" "" 'ZUI[my_rerender]=1; theme[ed-unicode-bool]=$(( ZUI[my_lbox6_idx] - 1 ));'
+
+    # Delete list box
+    (( ${+ZUI[my_lbox7_width]} == 0 )) && ZUI[my_lbox7_width]=12
+    ZUI[my_lbox7_idx]=$(( theme[delete-unicode-bool] + 1 ))
+    ZUI[my_lbox7_opts]="$theme[delete-text-c];$theme[delete-unicode-c]"
+
+    noglob -zui_std_list_box "lbox7_$mod" ZUI[my_lbox7_width] ZUI[my_lbox7_idx] ZUI[my_lbox7_opts] "" "" "" 'ZUI[my_rerender]=1; theme[delete-unicode-bool]=$(( ZUI[my_lbox7_idx] - 1 ));'
+
+    # Save configuration button
+    -zui_std_button "save_options" "$theme[o-save-text-c]" '-zcrasis_action_save_options; internal=1;'
+
+    reply=(
+        "Available themes: ${reply[1]} ${reply[2]}"
+        ""
+        "Available layouts: ${reply[3]} ${reply[4]}"
+        ""
+        "Buttons to move plugins in the list: ${reply[5]}"
+        ""
+        "Buttons to enable & disable plugins: ${reply[6]}"
+        ""
+        "Button to delete a plugin: ${reply[7]}"
+        ""
+        "${reply[8]}"
+    )
+
+    # Non-selectable lines   Hops to jump with [ and ]   Local anchors
+    reply2=( 2 4 6 )         reply3=( 1 7 )              reply4=( )
+}
+# }}}
+# FUNCTION: -zcrasis_generator_DBG {{{
+# ZUI generator that creates debug-report text. This is module 4.
+# There is 0 or 1 instance of this module, depending on chosen
+# view.
+-zcrasis_generator_DBG() {
+    reply=()
+
+    # Variables of the text field
+    (( ${+ZUI[my_tfield1_width]} == 0 )) && ZUI[my_tfield1_width]=50
+    (( ${+ZUI[my_tfield1_start]} == 0 )) && ZUI[my_tfield1_start]=1
+    (( ${+ZUI[my_tfield1_data]} == 0 )) && ZUI[my_tfield1_data]="$HOME/crasis-report.txt"
+
+    noglob -zui_std_text_field "report_path" ZUI[my_tfield1_width] ZUI[my_tfield1_start] ZUI[my_tfield1_data] "" "" "" ''
+    -zui_std_button "save_report" "$theme[d-save-text-c]" 'print -rl -- "${ZCR_DEBUG_MSGS[@]}" >| "${ZUI[my_tfield1_data]}"; -zui_std_stalog "Report written to: " "\`${ZUI[my_tfield1_data]}'"'"'"; internal=1;'
+
+    reply=( "Send reports to: $theme[d-email-1]psprint${ZUI[FMT_END]}$theme[d-email-2]@${ZUI[FMT_END]}$theme[d-email-3]zdharma.org${ZUI[FMT_END]}. Please include Zshrc if possible."
+        ""
+        "${reply[1]} ${reply[2]}"
+        ""
+        "${ZCR_DEBUG_MSGS[@]}"
+    )
+
+    # Non-selectable lines   Hops to jump with [ and ]   Local anchors
+    reply2=( )               reply3=( 1 )                reply4=( )
+}
+# }}}
+# FUNCTION: -zcrasis_action_reload {{{
+# Ran at startup and after [Reload] button press. Performs
+# full zshrc processing, recognizes other and zinit-related
+# zshrc parts, forgets user changes because it regenerates
+# the backend model-structure, the $cmdlist array of hashes.
+-zcrasis_action_reload() {
+    local id="$1"
+    float -F 2 sum=0.0
+    local -a stats
+
+    reply=()
+
+    -zcrasis_dbg_msg "Loading \`$zshrc_path'..."
+    zshrc="$(<$zshrc_path)"$'\ntest'
+    -zcrasis_dbg_msg "Read <ZSHRCSIZE> bytes (<ZSHRCLINES> lines)"
+    -zcrasis_dbg_msg ""
+
+    -zcrasis_clear_visual_state
+
+    print "Parsing zshrc..."
+    cmdlist=()
+    coidx=1
+    stats=()
+
+    [[ -n "$id" ]] && { -zcrasis_dbg_msg "[Reload] pressed"; -zcrasis_dbg_msg ""; }
+
+    [[ "${ZUI[my_in_preview]}" = 1 ]] && ZUI[my_in_preview]=0
+    [[ "${ZUI[my_in_debug]}" = 1 ]] && ZUI[my_in_debug]=0
+    [[ "${ZUI[my_in_options]}" = 1 ]] && ZUI[my_in_options]=0
+
+    typeset -F 2 SECONDS=0
+    -zcrasis-tokenize-zsh-rc
+    -zcrasis_verify_tokenization || { -zcrasis_tokenization_failed; return 1; }
+    stats+=( "Tokenization time: $SECONDS seconds" )
+    sum+=SECONDS
+
+    SECONDS=0
+    -zcrasis-process-zsh-rc
+    stats+=( "Main processing time: $SECONDS seconds" )
+    sum+=SECONDS
+
+    SECONDS=0
+    -zcrasis-process-zinit-commands
+    stats+=( "Zinit-commands processing time: $SECONDS seconds" )
+    sum+=SECONDS
+
+    -zcrasis_dbg_msg_arr "${stats[@]}" "Total time: $sum seconds" ""
+
+    -zui_std_stalog "Read " "\`$zshrc_path' " "(time: $sum sec)"
+
+    # Called from button?
+    [[ -n "$id" ]] && {
+        integer size=$(( ${#cmdlist} / 3 ))
+
+        -zui_std_set_mod_factor 2 "$size"
+        -zui_std_set_mod_factor 3 0
+        -zui_std_set_mod_factor 4 0
+
+        -zcrasis_refresh2_all_string
+
+        reply=( "$REPLY" "" )
+        return 0
+    }
+
+    return 0
+}
+# }}}
+-zcrasis_action_reload || return 1
+
+# Create needed local parameters
+integer i
+for (( i=1; i<=${#cmdlist}/3+64; i++ )); do
+    local my_mod2_ice${i}_size="0"
+done
+
+# Don't reset current segment on jump
+ZUI[reset_current_segment]="no"
+
+## Start application ##
+zui-event-loop 1:-zcrasis_generator_0 $(( ${#cmdlist} / 3 )):-zcrasis_generator_A \
+               0:-zcrasis_generator_B 0:-zcrasis_generator_DBG 0:-zcrasis_generator_OPT \
+               cfg-refresh:palette,log_colors,colorpair,status_colorpair,log_time_format,mark,mark2,altmark,altmark2
+
+-zui_std_cleanup serialize
+
+return 0

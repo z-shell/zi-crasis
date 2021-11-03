@@ -1,0 +1,10 @@
+if (( DBG )); then
+    -zcrasis_action_reload || { echo "Failed to parse zshrc" | tee zshrc.test; return 0; }
+else
+    -zcrasis_action_reload >/dev/null || { echo "Failed to parse zshrc" | tee zshrc.test; return 0; }
+fi
+
+-zcrasis_action_move_up 2 11
+-zcrasis_action_move_up 2 12
+
+-zcrasis_action_save

@@ -1,0 +1,234 @@
+# -*- mode: sh; -*-
+source $HOME/.zinit/bin/zinit.zsh
+
+HISTSIZE=3000
+SAVEHIST=10000
+HISTFILE=${XDG_CACHE_HOME:=$HOME/.cache}/zsh/history
+
+WORDCHARS=${${WORDCHARS//[-.]}//[\/]}
+
+export EDITOR=emacsclient
+alias ec=emacsclient
+alias open-project=projectile
+_emacs_function () {
+  emacsclient -e "($1 \"$2\")" > /dev/null
+}
+projectile () {
+  _emacs_function projectile-switch-project-by-name ${1:-$PWD}
+}
+set-emacs-ssh-agent () {
+  emacsclient -e "(setenv \"SSH_AUTH_SOCK\" \"$SSH_AUTH_SOCK\")"
+}
+yarn () {
+  PREFIX=$HOME/.local command yarn "$@"
+}
+
+ls='\ls'
+gnu_ls_options="-v --group-directories-first --color=auto"
+gnu_ls_isodate="--time-style=long-iso"
+bsd_ls_options="-p"
+bsd_ls_isodate="-D '%F %k:%M'"
+
+case $os in
+  darwin)
+    if [[ -n $commands[gls] ]]
+    then
+      ls='\gls'
+      ls_options=$gnu_ls_options
+      ls_isodate=$gnu_ls_isodate
+    else
+      ls_options=$bsd_ls_options
+      ls_isodate=$bsd_ls_isodate
+    fi
+    ;;
+  freebsd)
+    ls_options=$bsd_ls_options
+    ls_isodate=$bsd_ls_isodate
+    ;;
+  linux)
+    ls_options=$gnu_ls_options
+    ls_isodate=$gnu_ls_isodate
+    ;;
+esac
+alias l="${ls} ${ls_options} -Bp"
+alias l1="${ls} ${ls_options} -1"
+alias ls="${ls} ${ls_options} -hF"
+alias la="${ls} ${ls_options} -hA"
+alias ll="${ls} ${ls_options} ${ls_isodate} -hl"
+alias lal="ll -A"
+alias lla="lal"
+alias llr="ll -t"
+
+zmodload zsh/terminfo
+
+bindkey -e
+bindkey '\e[3~' delete-char
+
+bindkey '\C-hd' describe-key-briefly
+
+backward-argument () {
+  local WORDCHARS="\!\`~#@$%^&*()-_=+[{]}\|;:,<.>/?\'\""
+  zle backward-word
+}
+
+forward-argument () {
+  local WORDCHARS="\!\`~#@$%^&*()-_=+[{]}\|;:,<.>/?\'\""
+  zle forward-word
+}
+
+kill-argument () {
+  local WORDCHARS="\!\`~#@$%^&*()-_=+[{]}\|;:,<.>/?\'\""
+  zle backward-argument
+  zle kill-word
+}
+
+zle -N backward-argument
+zle -N forward-argument
+zle -N kill-argument
+bindkey '\e^b' backward-argument
+bindkey '\e^f' forward-argument
+bindkey '\e^k' kill-argument
+
+sort=${commands[gsort]:-$commands[sort]}
+
+ds () {
+  du -hd1 $1 | $sort -h
+}
+
+# returns the first ghq root, whereas $GHQ_ROOT returns all
+hash -d p=$(ghq root)
+hash -d go=${GOPATH:-$HOME/go}
+
+zle -C hist-complete complete-word _generic
+zstyle ':completion:hist-complete:*' completer _history
+bindkey '\e ' hist-complete
+
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z-_}={A-Za-z_-}' 'r:|=*' 'l:|=* r:|=*'
+zstyle ':completion:*' completer _expand _complete _match
+
+if [[ $os != "darwin" && -n $commands[gpg-connect-agent] ]]
+then
+  # When using SSH support, use the current TTY for passphrase prompts
+  gpg-connect-agent updatestartuptty /bye > /dev/null
+
+  # Point the SSH_AUTH_SOCK to the one handled by gpg-agent
+  if [ -S $(gpgconf --list-dirs agent-ssh-socket) ]; then
+    export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
+  else
+    echo "$(gpgconf --list-dirs agent-ssh-socket) doesn't exist. Is gpg-agent running ?"
+  fi
+elif [[ -z "$SSH_AUTH_SOCK" && -n $commands[ssh-agent] ]]
+then
+  eval $(ssh-agent)
+fi
+
+# Plugins
+
+zinit ice blockf
+zinit load "zsh-users/zsh-completions"
+zinit load "hlissner/zsh-autopair"
+zinit load "zdharma/fast-syntax-highlighting"
+zinit load "caarlos0/zsh-open-pr"
+zinit ice blockf
+zinit load "mollifier/anyframe"
+
+zinit snippet "https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/functions.zsh"
+zinit snippet "https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/termsupport.zsh"
+
+if [[ $os -eq darwin ]]
+then
+  zinit load "unixorn/tumult.plugin.zsh"
+fi
+
+if [[ -n $commands[npm] ]]
+then
+  zinit load "lukechilds/zsh-better-npm-completion"
+fi
+
+if [[ -n $commands[yarn] ]]
+then
+  zinit snippet "https://github.com/robbyrussell/oh-my-zsh/raw/master/plugins/yarn/yarn.plugin.zsh"
+fi
+
+if [[ -n $commands[nix-env] ]]
+then
+  zinit load "spwhitt/nix-zsh-completions"
+fi
+
+if [[ -n $commands[ghq] ]]
+then
+  zinit load "${GOPATH:=$HOME/go}/src/github.com/motemen/ghq/zsh/"
+fi
+
+autoload -Uz compinit
+compinit
+
+zinit cdreplay -q
+
+if [[ -n $commands[ghq] && -z $functions[_ghq] ]]
+then
+  zinit creinstall "${GOPATH:=$HOME/go}/src/github.com/motemen/ghq/zsh/"
+fi
+
+# General configuration
+
+if [[ -n $commands[hub] ]]
+then
+  alias git=hub
+fi
+
+if [[ -n $commands[gpg2] && -z $commands[gpg] ]]
+then
+  alias gpg=gpg2
+fi
+
+if [[ -n $commands[lunchy] ]]
+then
+  LUNCHY_DIR=$(dirname $(gem which lunchy))/../extras
+  if [ -f $LUNCHY_DIR/lunchy-completion.zsh ]; then
+    . $LUNCHY_DIR/lunchy-completion.zsh
+  fi
+fi
+
+if [[ $TERM == "dumb" ]]
+then
+  unsetopt zle
+  PROMPT="> "
+else
+  unset RPROMPT
+  # show username@host if logged in through SSH
+  [[ "$SSH_CONNECTION" != '' ]] && prompt_pure_username=' %F{242}%n@%m%f'
+
+  # show username@host if root, with username in white
+  [[ $UID -eq 0 ]] && prompt_pure_username=' %F{white}%n%f%F{242}@%m%f'
+
+  ZSH_THEME_TERM_TAB_TITLE_IDLE=""
+  ZSH_THEME_TERM_TITLE_IDLE=""
+
+  setopt prompt_subst
+  setopt prompt_cr
+  PROMPT='%F{blue}%~%f${prompt_pure_username}
+%(?.%F{magenta}.%F{red})>%f '
+fi
+
+if [[ -n $commands[fzf] ]]
+then
+  fp () {
+    ghq look $(ghq list | fzf +m)
+  }
+
+  zinit snippet "https://github.com/junegunn/fzf/raw/master/shell/key-bindings.zsh"
+
+  bindkey '^t' transpose-chars
+
+  zstyle ":anyframe:selector:fzf:" command "fzf --height 40%"
+
+  bindkey '\es' anyframe-widget-cd-ghq-repository
+  bindkey '^x^k' anyframe-widget-kill
+fi
+
+function eb-active-environment () {
+  aws elasticbeanstalk describe-environments | grep $(dig +short $1 CNAME) | cut -f10
+}
+
+unsetopt flow_control       # Let me use ^S and ^Q

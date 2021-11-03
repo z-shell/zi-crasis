@@ -1,0 +1,7 @@
+Origin:
+
+    https://github.com/thoughtbot/dotfiles/blob/master/zshrc
+
+revision f4d509f. Real-world test without added zinit commands, but with
+complex `if' and `case' uses which are duplicated to occur also at top scope,
+not only in function. The used zshrc is the same as in test 12.

@@ -1,0 +1,819 @@
+### [aa]a Exports
+# EXPORT
+HISTSIZE=200000
+SAVEHIST=200000
+HISTFILE=~/.zhistory
+
+PSSHORT=1
+
+#function setopt() { print -r - "$funcfiletrace[1]: $0 ${(q-)@}" >>! /tmp/setopt_data2; builtin $0 "$@" }
+
+(( ABSD )) && {
+    export LSCOLORS=dxfxcxdxbxegedabagacad CLICOLOR="1"
+    export ANDROID_ROOT=/opt/android
+}
+
+if [ -x /usr/bin/dircolors ]; then
+    DIRCPATH="/usr/bin/dircolors"
+elif [ -x /usr/local/bin/dircolors ]; then
+    DIRCPATH="/usr/local/bin/dircolors"
+else
+    DIRCPATH="/usr/bin/false"
+fi
+
+if [ -f /etc/DIR_COLORS ]; then
+    eval `$DIRCPATH -b /etc/DIR_COLORS`
+else
+    eval `$DIRCPATH`
+fi
+
+export EDITOR="vim" LESS="-iRFX" CVS_RSH="ssh"
+
+umask 022
+
+### [aa]b Setopts all
+if [[ $ZSH_VERSION > 3.0.6 ]]; then
+    setopt C_BASES		# print hex numbers like 0x7F
+    setopt LIST_PACKED		# use variable width columns for completion options
+    setopt OCTAL_ZEROES         # print octal numbers like 037
+fi
+
+setopt APPEND_HISTORY
+setopt AUTO_CD
+setopt AUTO_PUSHD
+setopt COMPLETE_IN_WORD
+setopt HIST_IGNORE_DUPS
+setopt INC_APPEND_HISTORY
+setopt INTERACTIVE_COMMENTS
+setopt NOTIFY
+setopt NO_ALWAYS_TO_END
+setopt NO_AUTO_MENU
+setopt NO_GLOB_COMPLETE
+setopt NO_GLOB_DOTS
+setopt NO_HIST_NO_FUNCTIONS
+setopt NO_PROMPT_CR
+setopt NO_SHARE_HISTORY
+setopt NUMERIC_GLOB_SORT
+setopt PROMPTSUBST
+setopt PUSHD_IGNORE_DUPS
+#setopt IGNORE_EOF
+#setopt NO_SHORT_LOOPS
+#setopt PRINT_EXIT_VALUE
+#setopt RM_STAR_WAIT
+
+### [aa]c Bindkeys
+bindkey "^[m" copy-prev-shell-word
+if [[ "$MC_SID" != "" || "$MC_CONTROL_PID" != "" ]]; then
+    bindkey "^J" accept-line
+else
+    bindkey "^J" self-insert
+fi
+
+function run-with-sudo { LBUFFER="sudo $LBUFFER" }
+zle -N run-with-sudo
+bindkey '^Xs' run-with-sudo
+
+bindkey -v
+[[ -z "$terminfo[kpp]" ]] || bindkey "$terminfo[kpp]" up-line-or-beginning-search
+[[ -z "$terminfo[knp]" ]] || bindkey "$terminfo[knp]" down-line-or-beginning-search
+[[ -z "$terminfo[kdch1]" ]] || bindkey "$terminfo[kdch1]" delete-char
+[[ -z "$terminfo[khome]" ]] || bindkey "$terminfo[khome]" beginning-of-line
+[[ -z "$terminfo[kend]" ]] || bindkey "$terminfo[kend]" end-of-line
+[[ -z "$terminfo[kbs]" ]] || bindkey "$terminfo[kbs]" backward-delete-char
+
+bindkey "^A"		beginning-of-line
+bindkey "^E"		end-of-line
+bindkey "^R"		history-incremental-search-backward
+bindkey "^?"		backward-delete-char
+bindkey "^H"		backward-delete-char
+bindkey "^W"		backward-kill-word
+bindkey "\e[1~"		beginning-of-line
+bindkey "\e[7~"		beginning-of-line
+bindkey "\e[H" 		beginning-of-line
+bindkey "\e[4~" 	end-of-line
+bindkey "\e[F" 		end-of-line
+bindkey "\e[8~"		end-of-line
+bindkey "\e[5~"		beginning-of-history
+bindkey "\e[6~"		end-of-history
+bindkey "\e[2~" 	transpose-words
+bindkey "\e[3~" 	delete-char
+
+### [aa]d Autoloads tools binds
+autoload -Uz allopt
+autoload -Uz zed
+autoload -Uz colors
+colors
+autoload -Uz zmv
+autoload -Uz zcalc
+zmodload -i zsh/complist
+
+autoload -U insert-files
+zle -N insert-files
+bindkey "^Xi" insert-files
+
+autoload -Uz tetris
+zle -N tetris
+bindkey "^Xt" tetris
+
+autoload -Uz edit-command-line
+zle -N edit-command-line
+#bindkey -M vicmd v edit-command-line
+
+autoload -Uz select-word-style
+select-word-style shell
+
+autoload -Uz url-quote-magic
+zle -N self-insert url-quote-magic
+
+url_quote_commands=(links wget youtube-dl)
+zstyle -e :urlglobber url-other-schema \
+  '[[ $url_quote_commands[(i)$words[1]] -le ${#url_quote_commands} ]] && reply=("*") || reply=(http https ftp ssh)'
+
+### [aa]e Aliases all
+# Command / group separator
+export A="1"
+
+# HELPERS {{{1
+myls()
+{
+    [ "$PWD" != "${PWD%Dropbox*}" ] && echo -e '\x1b[5m<Dropbox>\x1b[0m'
+    if [ ! -d _darcs ]; then
+        if [ ! -d .git ]; then
+            # Normal
+            command ls "$@"
+            return
+        fi
+    fi
+
+    if [ "$PWD" = "$HOME" ]; then
+        # In $HOME - still normal
+        command ls "$@"
+        return
+    fi
+
+    # Full listing if in a git/darcs repository
+    command ls -A "$@"
+}
+# 1}}}
+
+#
+# Install / remember options
+#
+
+(( ABSD )) && {
+    alias ls="ls -G"
+} || {
+    alias ls="ls --color=auto -bGh"
+}
+alias l=ls
+alias l.='ls -d .*'
+alias la='ls -a'
+alias ll='ls -lhct'
+alias rm='rm -i'
+alias grep="grep --colour=auto"
+alias lynx="lynx -accept-all-cookies"
+alias df='df -h'
+alias du='du -h'
+alias cp='cp -v'
+alias mv='mv -v'
+alias plast="last -20"
+# Reload the shell (i.e. invoke as a login shell)
+alias reload="exec $SHELL -l"
+
+alias ult="ulimit -c unlimited; echo $$"
+
+#
+# Global aliases
+#
+
+[ "$SHELL" = "zsh" ] && {
+    alias -g SPRNG="| curl -F 'sprunge=<-' http://sprunge.us"
+}
+
+# Git
+alias g${A}log_branches="git log --color=always --oneline --decorate --graph --branches"
+alias g${A}log_branches_intag="echo You can append a tag name; LANG=C sleep 0.5; \
+git log --color=always --oneline --decorate \
+--graph \
+--branches"
+alias g${A}log_simplify_decfull="git log --color=always --decorate=full --simplify-by-decoration"
+alias g${A}log_simplify="git log --color=always --simplify-by-decoration --decorate"
+
+# Image Magick
+alias i${A}montage_concat_topbo_black="montage -mode concatenate -tile 1x -background black"
+alias i${A}montage_concat_topbo_white="montage -mode concatenate -tile 1x -background white"
+alias i${A}convert_append_topbo_black="convert -append -background black"
+alias i${A}convert_append_topbo_white="convert -append -background white"
+alias i${A}convert_append_lefri_black="convert +append -background black"
+alias i${A}convert_append_lefri_white="convert +append -background white"
+
+# ffmpeg
+ff_tomp4() {
+    if [ "$2" != "" ]; then
+        ffmpeg -i "$1" -qscale 0 "$2"
+    else
+        ffmpeg -i "$1" -qscale 0 "${1%.*}.mp4"
+    fi
+}
+
+# Homebrew
+alias b${A}s="brew search"
+alias b${A}i="brew install"
+alias b${A}u="brew uninstall"
+alias b${A}info="brew info"
+alias b${A}desc="brew desc"
+alias b${A}descs="brew desc --search"
+alias b${A}ls="brew list"
+alias b${A}muver="brew ls --versions --multiple"
+alias b${A}leaves="brew leaves"
+alias b${A}home="brew home"
+alias b${A}upgrade="brew update; brew upgrade; brew cleanup"
+alias b${A}uses_installed="brew uses --installed"
+# Homebrew/cask
+alias b${A}cask_s="brew cask search"
+alias b${A}cask_i="brew cask install"
+alias b${A}cask_u="brew cask uninstall"
+alias b${A}cask_info="brew cask info"
+alias b${A}cask_ls="brew cask list"
+alias b${A}cask_home="brew cask home"
+
+#
+# Quick typing
+#
+
+alias n${A}keyfrogshell="ssh -t srnt,keyfrog@shell.sf.net create"
+alias n${A}spodekshell="ssh -t srnt,spodek@shell.sf.net create"
+alias n${A}ip="dig +short myip.opendns.com @resolver1.opendns.com"
+alias n${A}localip="ipconfig getifaddr en1"
+alias n${A}ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
+alias n${A}sniff="sudo ngrep -d 'en1' -t '^(GET|POST) ' 'tcp and port 80'"
+alias n${A}httpdump="sudo tcpdump -i en1 -n -s 0 -w - | grep -a -o -E \"Host\: .*|GET \/.*\""
+n1gglinks() {
+    search=`echo "$1+$2+$3+$4+$5+$6+$7+$8+$9" | sed 's:\+*$::'`
+    links google.com/search\?q="$search"
+}
+n1ggw3m() {
+    search=`echo "$1+$2+$3+$4+$5+$6+$7+$8+$9" | sed 's:\+*$::'`
+    w3m google.com/search\?q="$search"
+}
+n1ling() {
+    search=`echo "$1+$2+$3+$4+$5+$6+$7+$8+$9" | sed 's:\+*$::'`
+    w3m ling.pl/"$search"
+}
+n1diki() {
+    search=`echo "$1+$2+$3+$4+$5+$6+$7+$8+$9" | sed 's:\+*$::'`
+    w3m www.diki.pl/slownik-angielskiego/"?q=$search"
+}
+n1dict() {
+    search=`echo "$1+$2+$3+$4+$5+$6+$7+$8+$9" | sed 's:\+*$::'`
+    w3m dict.pl/dict"?word=$search"
+}
+
+alias ydlstat="ps -axo etime,state,pid,command | egrep --color=always '(python.*youtube-dl)|(/n1auto-youtube-dl.sh)' | grep -v egrep ; ls -1 ~/Dropbox/var/youtube-dl | grep -c .txt"
+alias ydtail='tail -n 100 -f /Users/sgniazdowski/Safe/ydl.log'
+
+# Show/hide hidden files in Finder
+alias x${A}show_hidden="defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder"
+alias x${A}hide_hidden="defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder"
+
+# Hide/show all desktop icons (useful when presenting)
+alias x${A}hide_desktop="defaults write com.apple.finder CreateDesktop -bool false && killall Finder"
+alias x${A}show_desktop="defaults write com.apple.finder CreateDesktop -bool true && killall Finder"
+
+# Disable / enable Spotlight
+alias x${A}spotoff="sudo mdutil -a -i off"
+alias x${A}spoton="sudo mdutil -a -i on"
+
+# Flush Directory Service cache
+alias x${A}flush="dscacheutil -flushcache && killall -HUP mDNSResponder"
+
+alias x${A}mute="osascript -e 'set volume output muted true'"
+alias x${A}lock="/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resources/CGSession -suspend"
+
+# Email screenshot
+alias x${A}email_screen="screencapture -C -M screen-`date +%d.%m.%Y-%H`.png"
+alias x${A}email_screen10s="screencapture -T 10 -C -M screen-`date +%d.%m.%Y-%H`.png"
+alias x${A}email_window="screencapture -W -M screen-`date +%d.%m.%Y-%H`.png"
+alias x${A}email_snippet="screencapture -s -M screen-`date +%d.%m.%Y-%H`.png"
+
+# Convert iso to dmg
+x1iso2dmg() {
+    hdiutil convert -format UDRW -o "${1%.iso}".dmg "${1}"
+}
+g1zip() {
+    f=`basename $(pwd)`-`date +%Y%m%d` ; rm -vf "$f".zip ; git archive --output "$f".zip --prefix "$f/" master ; du "$f".zip
+}
+
+#
+# General tools
+#
+
+alias biggest_files='find 2>/dev/null . -type f -ls | sed -e "s/[[:blank:]][[:blank:]]*/ /g" | cut -d" " -f 7,11- | sort -nr | head -25 | awk "{ printf \"%6d\", int( \$1/1048576 ); print \" MiB   \" \$2 \" \" \$3 \" \" \$4 \" \" \$5 \" \" \$6 \" \" \$7 \" \" \$8 \" \" \$9 \" \" \$10 \" \" \$11 \" \" \$12 }" | sed -e "s:MiB   \./:MiB   :" -e "s:\\\ : :g"'
+alias recently_changed='find . -newerct "15 minute ago" -print'
+recently_changed_x() { find . -newerct "$1 minute ago" -print; }
+alias newest_ls="ls -lcth | head -25"
+alias cpfile="rsync --progress"
+alias zmv='noglob zmv -W'
+
+alias g${A}reset_all="g${A}all reset --hard"
+alias g${A}pull_all="g${A}all pull"
+alias g${A}diff_all="g${A}all diff"
+
+countdown() {
+    __time=$1
+    vramsteg --start=3 --percentage --style text --width 30 --min 0 --max 10 --current 3
+    echo
+    sleep 1
+}
+
+#
+# Remember things
+#
+
+alias clonekeyfrog="git clone ssh://srnt@git.code.sf.net/p/keyfrog/code keyfrog-newclone; cd keyfrog-newclone; git config user.email srnt@users.sf.net; git config user.name 'Sebastian Gniazdowski'; cd .."
+
+#
+# Patches for various problems
+#
+
+alias slocate='locate'
+alias updatedb="sudo /usr/libexec/locate.updatedb"
+
+#
+# Advanced
+#
+
+# alias ls=myls ... - retain ls options but substitute the command with myls
+if altxt=`alias ls`; then
+    altxt="${altxt#alias }" # for sh
+    if [ "$altxt" != "${altxt#ls=\'ls}" ]; then
+        altxt=${altxt#ls=\'ls}
+        altxt=${altxt%\'}
+        altxt="ls=myls$altxt"
+        alias "$altxt"
+    fi
+else
+    alias ls="myls"
+fi
+
+# Foreach *.git directory
+g1all() {
+    PAUSE=0
+    for i in *.git; do
+        echo -e "\n$i\n"
+        LANG=C sleep $PAUSE
+        cd "$i"
+        git "$@"
+        cd ..
+        PAUSE="0.5"
+    done
+}
+
+# List all grouped commands
+list_commands() {
+    echo "Aliases:"
+    alias | egrep "[a-z]${A}.[a-z]+" | sed 's/^alias //' | cut -f 1 -d'=' | sort
+
+    echo
+    echo "Scripts:"
+    ls -1 /usr/local/bin /usr/bin | egrep "^[a-z]${A}.[a-z]+" | sort
+}
+
+### [aa]f Old functions
+function asus_xauth {
+    local i
+
+    for i in 0 1; do
+        echo 'mac:'$i..
+        xauth nextract - 'mac:'$i | ssh root@asus xauth nmerge -
+        xauth nextract - 'mac:'$i | ssh seba@asus xauth nmerge -
+    done
+}
+
+function gericom_xauth {
+    local i
+
+    for i in 0 1; do
+        echo 'mac:'$i..
+        xauth nextract - 'mac:'$i | ssh root@geri xauth nmerge -
+    done
+}
+
+function is_macports {
+    echo "$PATH" | grep -q "/opt/local/bin"
+}
+
+function prompt_macports {
+    is_macports && echo "/MacPorts"
+}
+
+function macports_on {
+    macports_off
+    PATH=/opt/local/bin:$PATH
+    typeset -U path
+    export PATH
+}
+
+function macports_off {
+    PATH=${PATH//\/opt\/local\/bin/}
+    PATH=${PATH//\/opt\/local\/bin:/}
+    PATH=${PATH//:\/opt\/local\/bin/}
+
+    PATH=${PATH//\/opt\/local\/bin\//}
+    PATH=${PATH//:\/opt\/local\/bin\//}
+    PATH=${PATH//\/opt\/local\/bin\/:/}
+
+    typeset -U path
+    export PATH
+}
+
+function brew_on {
+    PATH=${PATH//\/usr\/local\/bin/}
+    PATH=${PATH//\/usr\/local\/bin:/}
+    PATH=${PATH//:\/usr\/local\/bin/}
+
+    PATH=${PATH//\/usr\/local\/bin\//}
+    PATH=${PATH//:\/usr\/local\/bin\//}
+    PATH=${PATH//\/usr\/local\/bin\/:/}
+
+    PATH=${PATH//\/usr\/local\/sbin/}
+    PATH=${PATH//\/usr\/local\/sbin:/}
+    PATH=${PATH//:\/usr\/local\/sbin/}
+
+    PATH=${PATH//\/usr\/local\/sbin\//}
+    PATH=${PATH//:\/usr\/local\/sbin\//}
+    PATH=${PATH//\/usr\/local\/sbin\/:/}
+
+    PATH=$PATH:/usr/local/bin:/usr/local/sbin
+    typeset -U path
+    export PATH
+}
+
+function brew_off {
+    PATH=${PATH//\/usr\/local\/bin/}
+    PATH=${PATH//\/usr\/local\/bin:/}
+    PATH=${PATH//:\/usr\/local\/bin/}
+
+    PATH=${PATH//\/usr\/local\/bin\//}
+    PATH=${PATH//:\/usr\/local\/bin\//}
+    PATH=${PATH//\/usr\/local\/bin\/:/}
+
+    PATH=${PATH//\/usr\/bin/\/usr\/bin:\/usr\/local\/bin}
+    typeset -U path
+    export PATH
+}
+
+function relozsh {
+        autoload -U zrecompile
+                [ -f ~/.zshrc ] && zrecompile -p ~/.zshrc
+                [ -f ~/.zcompdump ] && zrecompile -p ~/.zcompdump
+                [ -f ~/.zcompdump ] && zrecompile -p ~/.zcompdump
+                [ -f ~/.zshrc.zwc.old ] && rm -f ~/.zshrc.zwc.old
+                [ -f ~/.zcompdump.zwc.old ] && rm -f ~/.zcompdump.zwc.old
+                source ~/.zshrc
+}
+
+### [aa]g Tools functions
+function probe_host {
+    while [ 1 ]; do
+        nmap --max_rtt_timeout 500ms --host_timeout 500ms -sP $1 | grep -i "1 host up" > /dev/null
+        if (( ! $? )); then
+            echo $fg_bold[green]UP$reset_color;
+        else
+            echo $fg_bold[yellow]DOWN$reset_color;
+        fi
+        sleep 1
+    done
+}
+
+function run_diso {
+  sh -c "$@" &
+  disown
+}
+
+function pbcopydir {
+  pwd | tr -d "\r\n" | pbcopy
+}
+
+from-where() {
+    echo $^fpath/$_comps[$1](N.)
+    whence -v $_comps[$1]
+    #which $_comps[$1] 2>&1 | head
+}
+
+uncolor() {
+    perl -pe 's/\e\[?.*?[\@-~]//g'
+}
+
+### [aa]h Other functions
+function most_useless_use_of_zsh {
+   integer lines columns colour i=0
+   float a b p q pnew delta1 delta2
+   ((columns=COLUMNS-1, lines=LINES-1, colour=0))
+   for ((b=-1.5; b<=1.5; b+=3.0/lines)) do
+       for ((a=-2.0; a<=1; a+=3.0/columns)) do
+           for ((p=0.0, q=0.0, i=0; p*p+q*q < 4 && i < 32; i++)) do
+               ((pnew=p*p-q*q+a, q=2*p*q+b, p=pnew))
+           done
+           ((colour=(i/4)%8))
+            echo -n "\\e[4${colour}m "
+        done
+        echo
+    done
+}
+
+### [aa]i Hack
+alias2() {
+    builtin alias "$@"
+    return $?
+    [ "$GLOBAL_VAR" -lt "3" ] && echo "My own alias [$GLOBAL_VAR] $@"
+    (( GLOBAL_VAR ++ ))
+    builtin alias "$@"
+}
+
+zle2() {
+    builtin zle "$@"
+}
+
+### [aa]j Off
+#bindkey "^[/" _history-complete-older
+#zstyle ':completion:*:history-words' remove-all-dups true
+#zstyle ':completion:*' range 50000:10000
+
+#autoload transpose-words-match
+#zle -N transpose-words-match
+#bindkey "^[t" transpose-words-match
+
+#backward-kill-shell-word() {
+#  zle select-in-shell-word
+#  ((++CURSOR))  # adjust for vi vs. emacs region
+#  zle kill-region
+#}
+#zle -N backward-kill-shell-word
+#bindkey "^[w" backward-kill-shell-word
+
+#autoload incremental-complete-word
+#zle -N incremental-complete-word
+#bindkey "^T" incremental-complete-word
+#zstyle ':completion:incremental:*' completer _complete _ignored
+#zstyle :incremental stop-keys $'[\e\C-b\C-f\C-n\C-p\C-u-\C-x]'
+
+#RPROMPT='[%D{%L:%M:%S %p}]'
+#TMOUT=1
+#TRAPALRM() {
+#    zle reset-prompt
+#}
+
+### [aa]k Zinit
+if (( 1 )); then
+
+#zmodload zsh/zprof
+#() {
+source "$HOME/.zinit/bin/zinit.zsh"
+#}
+#zprof | head
+
+autoload -Uz _zinit
+(( ${+_comps} )) && _comps[zinit]=_zinit
+
+#module_path+=( ~/github/zinit.git/zmodules/Src )
+#zmodload zdharma/zinit
+
+autoload -Uz compinit
+compinit
+
+zinit snippet https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/git.zsh
+zinit ice atclone"echo Cloned"
+zinit snippet https://github.com/robbyrussell/oh-my-zsh/blob/master/plugins/git/git.plugin.zsh
+zinit cdclear -q
+zinit light psprint/zsh-navigation-tools   # for n-history
+zinit light rimraf/k
+zinit light zdharma/zconvey
+
+# History search allowing multi-term queries
+
+# Works very well
+
+zinit ice if"(( 1 ))"  # Test commen
+zinit light psprint/history-search-multi-word
+zinit light psprint/zprompts
+zinit light zdharma/zui
+zinit light zdharma/zinit-crasis
+: zinit light nojhan/liquidprompt
+: zinit light NicoSantangelo/Alpharized
+: zinit light russjohnson/angry-fly-zsh
+
+# Autosuggestions
+
+zinit light zsh-users/zsh-autosuggestions
+zinit light zdharma/fast-syntax-highlighting
+zinit cdclear -q
+
+fi
+
+if (( 0 )); then
+
+zmodload zsh/zprof
+
+() {
+
+. ~/github2/zgen/zgen.zsh
+
+}
+
+zprof | head -n 14
+
+if ! zgen saved; then
+    echo "Creating a zgen save"
+    zgen load psprint/zui
+    zgen load psprint/zconvey
+    zgen load psprint/zsh-navigation-tools
+    zgen load psprint/zsh-editing-workbench
+    zgen load psprint/zsh-cmd-architect
+    zgen load psprint/zsnapshot
+    zgen load psprint/zsh-select
+    zgen load psprint/zprompts
+    zgen load psprint/zzcomplete
+    zgen load rimraf/k
+    zgen load psprint/history-search-multi-word
+    zgen load zdharma/zbrowse
+    zgen load oz/safe-paste
+    zgen load zsh-users/zsh-autosuggestions
+    zgen load psprint/zcommodore
+    zgen load zdharma/zgdbm
+    zgen load zdharma/fast-syntax-highlighting
+    zgen save
+fi
+
+#}
+
+#zprof | head -n 14
+
+fi
+
+### [aa]l Zsh navigation tools
+znt_functions_keywords=( "zplg" "zgen" "match" )
+znt_list_instant_select=1
+znt_list_border=0
+znt_list_bold=1
+#znt_list_colorpair="green/black"
+#znt_list_colorpair="black/blue"
+#znt_list_colorpair="white/17"
+znt_list_colorpair="white/17"
+znt_cd_active_text="underline"
+znt_kill_active_text="underline"
+znt_history_active_text="underline"
+znt_cd_hotlist=( "/usr/local/share/zsh" "~/github/zsh-navigation-tools" "~/github/ztrace/"
+                 "~/github/zsh-cmd-architect" "~/github/zsh-editing-workbench" )
+znt_kill_keywords=( "git" "git commit" "vim" "firefox" "mplayer" )
+#znt_list_themes=( "green/black/1" "black/white/1" )
+
+zle -N znt-cd-widget
+#bindkey "^B" znt-cd-widget
+zle -N znt-kill-widget
+bindkey "^Y" znt-kill-widget
+
+### [aa]m Zstyles
+zstyle ":history-search-multi-word" page-size "11"
+zstyle ":morpho" screen-saver "zmorpho"
+zstyle ":morpho" arguments "-s"
+zstyle ":morpho" delay "3000"           # 5 minutes before screen-saver starts
+zstyle ":morpho" check-interval "60"   # check every 1 minute if to run screen-saver
+
+### [aa]n Prompt selection final setup
+promptinit
+prompt sprint3
+brew_on
+[ -f "$HOME/Safe/brew-api-token" ] && export HOMEBREW_GITHUB_API_TOKEN=$(<~/Safe/brew-api-token)
+cdpath=( "$HOME/workspace" "$HOME/github" "$HOME/github2" )
+
+export ZEKYLL_DEFAULT_REPO="psprint"
+path+=( "$HOME/.zekyll/zekyll" )
+
+### [aa]o Very final
+#zprof | head -n 30
+
+### [aa]p Completion
+zstyle ':completion:*:*:kill:*' menu yes select
+zstyle ':completion:*:kill:*'   force-list always
+zstyle ":completion:*:descriptions" format "%B%d%b"
+zstyle ':completion:*:*:*:default' menu yes select search
+
+double-accept() { accept-line ; accept-line }
+zle -N double-accept
+bindkey -M menuselect '^F' history-incremental-search-forward
+bindkey -M menuselect '^R' history-incremental-search-backward
+bindkey -M menuselect ' ' double-accept
+
+HUNTER_ROOT="~/hunter"
+
+SDKPATH="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk"
+
+zstyle ":accumulator" bold "0"
+zstyle ":accumulator" colorpair "white/black"
+zstyle ":accumulator" border "1"
+zstyle ":accumulator" time_limit "2000"
+zstyle ":accumulator:tracking" proj_discovery_nparents "4"
+zstyle ":accumulator:vim1" size "20"
+zstyle ":accumulator:vim1" backup_dir "~/.backup"
+zstyle ":accumulator:shellutils1" keep_going "2000"
+zstyle ":accumulator:shellutils1" sort_order "recent_first"
+
+zman() {
+    PAGER="less -g -s '+/^       "$1"'" man zshall
+}
+
+palette() {
+    for n in {000..255}; do colors+=("%F{$n}$n%f"); done; print -cP $colors
+}
+
+path[1,0]="$HOME/github/zcommodore.git/myctags"
+
+if (( 0 )); then
+    TRAPALRM() { abcdef=$(( abcdef + 1 )); }
+    TMOUT=1
+    PERIODIC_HOOK() { efghij=$(( efghij + 1 )); }
+    PERIOD=1
+    add-zsh-hook periodic PERIODIC_HOOK
+    repeat 50; do sleep 1000000 &; done
+    coproc cat
+fi
+
+alias includes='cd /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include'
+
+export HOMEBREW_CASK_OPTS="--caskroom=/etc/Caskroom"
+
+function mem() { ps -axv | grep $$ }
+
+#autoload up-line-or-beginning-search down-line-or-beginning-search
+#zle -N up-line-or-beginning-search
+#zle -N down-line-or-beginning-search
+#[[ -z "$terminfo[kpp]" ]] || bindkey "$terminfo[kpp]" up-line-or-beginning-search
+#[[ -z "$terminfo[knp]" ]] || bindkey "$terminfo[knp]" down-line-or-beginning-search
+#bindkey "^[[A" up-line-or-beginning-search
+#bindkey "^[[B" down-line-or-beginning-search
+
+#module_path+=( ~/github/zinit.git/zmodules/Src/Modules )
+#zmodload autoload2
+#autoload ~/myfunctions/calendar
+
+#export ZPLUG_HOME=~/github/zplug
+#zmodload zsh/zprof
+#() {
+#    source ~/github/zplug/init.zsh
+#}
+#zprof | head -n 14
+
+myredis() {
+    module_path+=( ~/github/zredis.git/module/Src )
+    zmodload -u zdharma/zgdbm
+    zmodload zdharma/db
+    zmodload zdharma/zredis
+}
+
+myzinit() {
+    module_path+=( ~/github/zinit.git/zmodules/Src )
+    #zmodload zdharma/zinit
+    #zinit cd zdharma/zconvey
+}
+
+#myredis
+myzinit
+#ztie -d db/redis -f "127.0.0.1/4/LIST" mylist
+#echo "----------- $zredis_tied -----------"
+#zuntie mylist
+
+# ziniload functions.zini 2>/dev/null
+# zrtie -d db/redis -f "127.0.0.1/3/LIST" -a foobared list
+#ztie -d db/redis -f "127.0.0.1/3/LIST" -L list list
+#echo $list
+#zuntie list
+
+if (( 0 )); then
+    zrtie -d db/redis -f "127.0.0.1/0" -p redis
+    echo ${(kv)redis}
+    echo now
+    sleep 4
+    redis=( lonekey ValC mykey2 Val2C )
+    echo now2
+    sleep 4
+    redis=( lonekey ValC mykey2 Val2C )
+    echo ${(kv)redis}
+fi
+
+#zrtie -d db/redis -f "127.0.0.1/0/zset" myzset
+#echo $myzset[val1]
+
+if (( 0 )); then
+    zmodload zsh/zprof
+    () {
+        source ~/empty.txt_source
+    }
+    zprof | head -n 14
+fi
+
+bshell() { ssh -p 2222 psprint@ssh.blinkenshell.org; }
+bscpy() { scp -P 2222 "$@" psprint@ssh.blinkenshell.org:; }
+
+# added by travis gem
+[ -f /Users/sgniazdowski/.travis/travis.sh ] && source /Users/sgniazdowski/.travis/travis.sh

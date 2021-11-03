@@ -1,0 +1,79 @@
+# -*- mode: shell-script -*-
+# vim:ft=zsh:sw=4:sts=4:et
+
+# ioutput[1] already has trailing space
+local __ice_line="${ioutput[1]}${(j: :)ioutput[2,-1]}"
+
+# To then split into two, detecting if there is actually one
+ice_add_remove="${(j: :)${(@Q)${(@z)ice_add_remove}}}"
+
+# Snippet in the listing
+local -a spl
+spl=( ${(z@)ice_add_remove} )
+if [[ ${#spl} -eq 2 ]]; then
+    w_snippet_item_long=(
+        "$num $w_up $w_down $smarker_text $w_force $w_ascommand $w_url"
+        "$w_delete$w_disable $ice_add_remove ${__ice_line##[[:blank:]]##}"
+    )
+else
+    w_snippet_item_long=(
+        "$num $w_up $w_down $smarker_text $w_force $w_ascommand $ice_add_remove $w_url"
+        "$w_delete$w_disable ${__ice_line##[[:blank:]]##}"
+    )
+fi
+
+w_snippet_item_short=(
+    "$num $w_up $w_down $smarker_text $w_url"
+)
+
+# Plugin in the listing
+
+spl=( ${(z@)ice_add_remove} )
+if [[ ${#spl} -eq 2 ]]; then
+    w_plugin_item_long=(
+        "$num $w_up $w_down $pmarker_text $w_mode $w_compile $w_plugin"
+        "$w_delete$w_disable $ice_add_remove ${__ice_line##[[:blank:]]##}"
+    )
+else
+    w_plugin_item_long=(
+        "$num $w_up $w_down $pmarker_text $w_mode $w_compile $ice_add_remove $w_plugin"
+        "$w_delete$w_disable ${__ice_line##[[:blank:]]##}"
+    )
+fi
+
+w_plugin_item_short=(
+    "$num $w_up $w_down $pmarker_text $w_plugin"
+)
+
+# cdreplay in the listing
+
+w_cdreplay_item_long=(
+    "$num $w_up $w_down cdreplay${w_q:+ -q}"
+    "$w_delete$w_disable"
+)
+
+w_cdreplay_item_short=(
+    "$num $w_up $w_down cdreplay${w_q:+ -q}"
+)
+
+# cdclear in the listing
+
+w_cdclear_item_long=(
+    "$num $w_up $w_down cdclear${w_q:+ -q}"
+    "$w_delete$w_disable"
+)
+
+w_cdclear_item_short=(
+    "$num $w_up $w_down cdclear${w_q:+ -q}"
+)
+
+# regular command in listing
+
+w_other_item_long=(
+    "$num $w_up $w_down $text"
+    "$w_delete$w_disable"
+)
+
+w_other_item_short=(
+    "$num $w_up $w_down $text"
+)

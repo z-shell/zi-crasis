@@ -1,0 +1,5 @@
+#!zsh
+
+zinit load psprint---zprompts
+zinit snippet ~/p9k/powerlevel9k.zsh-theme
+zinit load psprint/zsh-navigation-tools

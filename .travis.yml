@@ -1,0 +1,27 @@
+language: ruby
+dist: trusty
+rvm:
+  - 2.6.3
+install: gem install asciidoctor-pdf --pre
+
+git:
+  depth: 1
+branches:
+  only:
+    - main
+addons:
+  apt:
+    packages:
+      - zsh
+
+env:
+  global:
+    - ENCRYPTION_LABEL: "860911436c4b"
+    - COMMIT_AUTHOR_EMAIL: "psprint@zdharma.org"
+
+before_script:
+  - zsh --version
+script:
+  - make
+  - make -C zsdoc pdf
+  - share/deploy_doc.sh

@@ -1,0 +1,6 @@
+Origin:
+
+    https://github.com/thoughtbot/dotfiles/tree/master/zsh
+
+revision 4fa7cd6. Added zinit commands and compinit. Revealed problems with
+spaces following commands.

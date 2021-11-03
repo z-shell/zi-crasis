@@ -1,0 +1,11 @@
+Origin:
+
+    https://github.com/iboyperson/dotfiles/blob/master/.zshrc
+    https://github.com/iboyperson/dotfiles/blob/master/.zinit-packages
+
+revision 630e7c4. Real-world test with existing zinit commands. Merged two
+files. Script does two moves targetting autoload compinit and compinit, whose
+locations have been modified to occur after all Zinit commands.
+
+TODO: A newline disappears, probably missing code that detects custom (not
+plain \n) newlines, easy to fix and minor.

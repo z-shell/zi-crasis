@@ -1,0 +1,10 @@
+Origin:
+
+    https://gitlab.com/iladin/dotfiles/blob/master/.zinit.zsh
+
+revision 81116e26. This real-world test revealed that "-q" given to cdreplay is
+not preserved in output (i.e. when saving). However, when trying to reproduce,
+it was missing only in UI. Fixed this in previous commit. The code uses functions
+so it's not a typical zshrc. TODO are comments after custom commands (i.e. not
+zinit calls). The test also moves not-added zinit command together with its
+comment.

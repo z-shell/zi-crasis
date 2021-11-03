@@ -1,0 +1,14 @@
+
+An “Oh My ZSH!” theme for Astronauts. https://git.io/spaceship
+An Oh-My-Zsh plugin to help remembering those aliases you defined once
+peco/percol/fzf wrapper plugin for Zsh
+Zsh plugin to cd to git repository root directory
+Directory listings for Zsh with git features
+Optimized and extended Zsh-users/Zsh-syntax-highlighting
+Multi-word, syntax highlighted history searching for Zsh (Ctrl-R)
+Integrated terminal workflow with Zshell (sending commands between shells)
+Redis database-mappings for Zsh
+Fish-like autosuggestions for Zsh
+Additional completion definitions for Zsh
+Zsh port of the Fish shell's history search
+Fish shell like syntax highlighting for Zsh

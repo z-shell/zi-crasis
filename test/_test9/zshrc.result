@@ -1,0 +1,24 @@
+#! zsh
+export ZPLG_HOME=$XDG_CACHE_HOME/zsh/zinit
+if [[ ! -f $ZPLG_HOME/bin/zinit.zsh ]]; then
+    git clone https://github.com/psprint/zinit $ZPLG_HOME/bin
+fi
+source $ZPLG_HOME/bin/zinit.zsh
+autoload -Uz compinit
+compinit -C -d $ZPLG_HOME/zcompdump
+zinit load mafredri/zsh-async
+zinit load willghatch/zsh-saneopt
+
+zinit load sharat87/zsh-vim-mode
+zinit load sindresorhus/pure
+zinit load trapd00r/LS_COLORS
+eval $(zinit cd trapd00r/LS_COLORS; dircolors -b LS_COLORS)
+zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
+
+zinit load micha/resty
+zinit load rupa/z
+zinit load supercrabtree/k
+ 
+zinit load zsh-users/zsh-completions
+zinit load zsh-users/zsh-history-substring-search
+zinit load zsh-users/zsh-syntax-highlighting
