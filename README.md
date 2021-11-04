@@ -1,22 +1,11 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
-- [`ZINIT CRASIS`](#zinit-crasis)
-- [Crasis – semigraphical interface to Zinit](#crasis--semigraphical-interface-to-zinit)
-- [Installation & Basic Use](#installation--basic-use)
-- [Key Bindings](#key-bindings)
-- [Screenshots](#screenshots)
-- [Code Documentation](#code-documentation)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 # `ZINIT CRASIS`
 
 [![Build Status](https://travis-ci.org/z-shell/zinit-crasis.svg?branch=main)](https://travis-ci.org/z-shell/zinit-crasis)
 [![License (GPL version 3)](https://img.shields.io/badge/license-GNU%20GPL%20version%203-blue.svg?style=flat-square)](./LICENSE)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
 ![ZSH 5.0.0](https://img.shields.io/badge/zsh-v5.0.0-orange.svg?style=flat-square)
+
+---
 
 # Crasis – semigraphical interface to Zinit
 
@@ -31,7 +20,7 @@ now you can just **press a button**.
 
 `Crasis` uses pure-Zshell [ZUI](http://github.com/z-shell/zui/) library to create `ncurses` interface.
 
-# Installation & Basic Use
+## Installation & Basic Use
 
 Install [Zinit](https://github.com/z-shell/zinit) and add following commands to `.zshrc`:
 
@@ -50,7 +39,7 @@ CRASIS_THEME="zdharma-256" CRASIS_LAYOUT="contract" crasis
 
 `256`-color themes require Zsh `5.3` or later.
 
-# Key Bindings
+## Key Bindings
 
 | Key(s)             | Description                                                      |
 | ------------------ | ---------------------------------------------------------------- |
@@ -69,13 +58,13 @@ CRASIS_THEME="zdharma-256" CRASIS_LAYOUT="contract" crasis
 | `Ctrl-K`           | Delete whole line (in incremental search)                        |
 | Up and down        | Resize text field when editing it (e.g. to make the text fit in) |
 
-# Screenshots
+## Screenshots
 
 ![clean-256](https://raw.githubusercontent.com/z-shell/zinit-crasis/main/themes/screenshots/clean-256.png)
 
 ![zdharma-256](https://raw.githubusercontent.com/z-shell/zinit-crasis/main/themes/screenshots/zdharma-256.png)
 
-# Code Documentation
+## Code Documentation
 
 `Crasis` is a [ZUI](http://github.com/z-shell/zui/) application. `ZUI` is a pure-Zshell library
 where user generates simple text with hyperlinks, which is then turned into active document with

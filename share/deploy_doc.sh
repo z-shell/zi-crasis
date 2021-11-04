@@ -50,7 +50,7 @@ if git diff --quiet --exit-code && [[ "${#LIST_ORIGINAL}" -eq "${#LIST_NEW}" ]];
 fi
 
 # Now let's go have some fun with the cloned repo
-git config user.name "Sebastian Gniazdowski [Travis CI]"
+git config user.name "Salvydas Lukosius [Travis CI]"
 git config user.email "$COMMIT_AUTHOR_EMAIL"
 
 # Commit the new files
@@ -63,7 +63,7 @@ ENCRYPTED_IV_VAR="encrypted_${ENCRYPTION_LABEL}_iv"
 ENCRYPTED_KEY="${!ENCRYPTED_KEY_VAR}"
 ENCRYPTED_IV="${!ENCRYPTED_IV_VAR}"
 
-openssl aes-256-cbc -K $ENCRYPTED_KEY -iv $ENCRYPTED_IV -in ../share/deploy_key.enc -out ../share/deploy_key -d
+#openssl aes-256-cbc -K $ENCRYPTED_KEY -iv $ENCRYPTED_IV -in ../share/deploy_key.enc -out ../share/deploy_key -d
 chmod 600 ../share/deploy_key
 eval $(ssh-agent -s)
 ssh-add ../share/deploy_key
