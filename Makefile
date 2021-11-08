@@ -17,5 +17,5 @@ clean:
 	rm -f -- zinit-crasis.plugin.zsh.zwc crasis.zwc -zcrasis-process-buffer.zwc
 	rm -rf zsdoc/data
 
-.PHONY: all test clean
+.PHONY: all clean
 # vim:noet:sts=8:ts=8
