@@ -577,7 +577,7 @@ autoload -Uz _zinit
 (( ${+_comps} )) && _comps[zinit]=_zinit
 
 #module_path+=( ~/github/zinit.git/zmodules/Src )
-#zmodload zdharma/zinit
+#zmodload z-shell/zinit
 
 autoload -Uz compinit
 compinit
@@ -586,19 +586,19 @@ zinit snippet https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/git.zsh
 zinit ice atclone"echo Cloned"
 zinit snippet https://github.com/robbyrussell/oh-my-zsh/blob/master/plugins/git/git.plugin.zsh
 zinit cdclear -q
-zinit light psprint/zsh-navigation-tools   # for n-history
+zinit light z-shell/zsh-navigation-tools   # for n-history
 zinit light rimraf/k
-zinit light zdharma/zconvey
+zinit light z-shell/zconvey
 
 # History search allowing multi-term queries
 
 # Works very well
 
 zinit ice if"(( 1 ))"  # Test commen
-zinit light psprint/history-search-multi-word
-zinit light psprint/zprompts
-zinit light zdharma/zui
-zinit light zdharma/zinit-crasis
+zinit light z-shell/history-search-multi-word
+#zinit light psprint/zprompts
+zinit light z-shell/zui
+zinit light z-shell/zinit-crasis
 : zinit light nojhan/liquidprompt
 : zinit light NicoSantangelo/Alpharized
 : zinit light russjohnson/angry-fly-zsh
@@ -606,7 +606,7 @@ zinit light zdharma/zinit-crasis
 # Autosuggestions
 
 zinit light zsh-users/zsh-autosuggestions
-zinit light zdharma/fast-syntax-highlighting
+zinit light z-shell/fast-syntax-highlighting
 zinit cdclear -q
 
 fi
@@ -687,7 +687,7 @@ brew_on
 [ -f "$HOME/Safe/brew-api-token" ] && export HOMEBREW_GITHUB_API_TOKEN=$(<~/Safe/brew-api-token)
 cdpath=( "$HOME/workspace" "$HOME/github" "$HOME/github2" )
 
-export ZEKYLL_DEFAULT_REPO="psprint"
+export ZEKYLL_DEFAULT_REPO="z-shell"
 path+=( "$HOME/.zekyll/zekyll" )
 
 ### [aa]o Very final
@@ -766,15 +766,15 @@ function mem() { ps -axv | grep $$ }
 
 myredis() {
     module_path+=( ~/github/zredis.git/module/Src )
-    zmodload -u zdharma/zgdbm
-    zmodload zdharma/db
-    zmodload zdharma/zredis
+    zmodload -u z-shell/zgdbm
+    zmodload z-shell/db
+    zmodload z-shell/zredis
 }
 
 myzinit() {
-    module_path+=( ~/github/zinit.git/zmodules/Src )
-    #zmodload zdharma/zinit
-    #zinit cd zdharma/zconvey
+    module_path+=( ~/.zinit/zmodules/Src )
+    #zmodload z-shell/zinit
+    #zinit cd z-shell/zconvey
 }
 
 #myredis
@@ -812,8 +812,8 @@ if (( 0 )); then
     zprof | head -n 14
 fi
 
-bshell() { ssh -p 2222 psprint@ssh.blinkenshell.org; }
-bscpy() { scp -P 2222 "$@" psprint@ssh.blinkenshell.org:; }
+#bshell() { ssh -p 2222 psprint@ssh.blinkenshell.org; }
+#bscpy() { scp -P 2222 "$@" psprint@ssh.blinkenshell.org:; }
 
 # added by travis gem
-[ -f /Users/sgniazdowski/.travis/travis.sh ] && source /Users/sgniazdowski/.travis/travis.sh
+[ -f ~/.travis/travis.sh ] && source ~/.travis/travis.sh
