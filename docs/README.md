@@ -1,16 +1,22 @@
-# `ZINIT CRASIS`
+<h1> ZI Crasis </h1>
 
-[![Build Status](https://travis-ci.org/z-shell/zinit-crasis.svg?branch=main)](https://travis-ci.org/z-shell/zinit-crasis)
+[![Build Status](https://travis-ci.org/z-shell/zi-crasis.svg?branch=main)](https://travis-ci.org/z-shell/zi-crasis)
 [![License (GPL version 3)](https://img.shields.io/badge/license-GNU%20GPL%20version%203-blue.svg?style=flat-square)](./LICENSE)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
 ![ZSH 5.0.0](https://img.shields.io/badge/zsh-v5.0.0-orange.svg?style=flat-square)
 
----
+- [Introduction](#introduction)
+- [Installation & Basic Use](#installation--basic-use)
+- [Key Bindings](#key-bindings)
+- [Screenshots](#screenshots)
+- [Code Documentation](#code-documentation)
 
-# Crasis – semigraphical interface to Zinit
+# Introduction
+
+**Crasis – semigraphical interface to ZI**
 
 Zsh exposes its parser via `(z)` substitution flag. Parsing `.zshrc` is totally possible.
-This way `Crasis` lets you edit your `Zinit` commands located in `.zshrc`. All in pure
+This way `Crasis` lets you edit your `ZI` commands located in `.zshrc`. All in pure
 `Zshell` code.
 
 No more commenting-out a line with a text editor to disable plugin, cluttering `.zshrc`,
@@ -20,13 +26,13 @@ now you can just **press a button**.
 
 `Crasis` uses pure-Zshell [ZUI](http://github.com/z-shell/zui/) library to create `ncurses` interface.
 
-## Installation & Basic Use
+# Installation & Basic Use
 
-Install [Zinit](https://github.com/z-shell/zinit) and add following commands to `.zshrc`:
+Install [ZI](https://github.com/z-shell/zi) and add following commands to `.zshrc`:
 
 ```SystemVerilog
-zinit light z-shell/zui
-zinit light z-shell/zinit-crasis
+zi light z-shell/zui
+zi light z-shell/zi-crasis
 ```
 
 To use, invoke `crasis [optional zshrc path]` or press `Ctrl-o-k`. Global variables `CRASIS_THEME`
@@ -39,7 +45,7 @@ CRASIS_THEME="zdharma-256" CRASIS_LAYOUT="contract" crasis
 
 `256`-color themes require Zsh `5.3` or later.
 
-## Key Bindings
+# Key Bindings
 
 | Key(s)             | Description                                                      |
 | ------------------ | ---------------------------------------------------------------- |
@@ -58,16 +64,16 @@ CRASIS_THEME="zdharma-256" CRASIS_LAYOUT="contract" crasis
 | `Ctrl-K`           | Delete whole line (in incremental search)                        |
 | Up and down        | Resize text field when editing it (e.g. to make the text fit in) |
 
-## Screenshots
+# Screenshots
 
-![clean-256](https://raw.githubusercontent.com/z-shell/zinit-crasis/main/themes/screenshots/clean-256.png)
+![clean-256](https://raw.githubusercontent.com/z-shell/zi-crasis/main/themes/screenshots/clean-256.png)
 
-![zdharma-256](https://raw.githubusercontent.com/z-shell/zinit-crasis/main/themes/screenshots/zdharma-256.png)
+![zdharma-256](https://raw.githubusercontent.com/z-shell/zi-crasis/main/themes/screenshots/zdharma-256.png)
 
-## Code Documentation
+# Code Documentation
 
 `Crasis` is a [ZUI](http://github.com/z-shell/zui/) application. `ZUI` is a pure-Zshell library
 where user generates simple text with hyperlinks, which is then turned into active document with
 buttons. Check out `Crasis` code documentation:
-[Asciidoc](https://github.com/z-shell/zinit-crasis/blob/main/zsdoc/crasis.adoc),
-[PDF](http://z-shell.github.io/zinit-crasis/crasis.pdf).
+[Asciidoc](https://github.com/z-shell/zi-crasis/blob/7ff5b6d0ab290187f0064020372560b1de033fee/zsdoc/crasis.adoc),
+[PDF](https://github.com/z-shell/zi-crasis/blob/314cc6f71799a1f3399d9d2963b6e070118a229d/zsdoc/pdf/crasis.pdf).
