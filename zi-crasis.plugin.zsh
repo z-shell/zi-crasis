@@ -11,7 +11,7 @@ if [[ $PMSPEC != *f* ]] {
   fpath+=( "${0:h}/functions" )
 }
 
-typeset -g ZCRASIS_DIR="${0:h}"
+typeset -g $ZCRASIS_REPO_DIR="${0:h}"
 
 #0="${(%):-%N}" # this gives immunity to functionargzero being unset
 #export ZCRASIS_REPO_DIR="${0%/*}"
