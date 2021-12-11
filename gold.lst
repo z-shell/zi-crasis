@@ -3,9 +3,10 @@ djui/alias-tips
 mollifier/anyframe
 mollifier/cd-gitroot
 supercrabtree/k
-z-shell/F-Sy-H
-z-shell/H-W-MW
-z-shell/zconvey
+zdharma/fast-syntax-highlighting
+zdharma/history-search-multi-word
+zdharma/zconvey
+zdharma/zredis
 zsh-users/zsh-autosuggestions
 zsh-users/zsh-completions
 zsh-users/zsh-history-substring-search
