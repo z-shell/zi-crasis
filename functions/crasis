@@ -1112,7 +1112,7 @@ function -zcrasis_set_zui_settings() {
         [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/main)" || ver="${ver[1,7]}"
         ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZIVERSION>/$ver}" )
 
-        { local ver="$(<${ZI[PLUGINS_DIR]}/zdharma---zi-crasis/.git/refs/heads/main)" } 2>/dev/null
+        { local ver="$(<${ZI[PLUGINS_DIR]}/z-shell---zi-crasis/.git/refs/heads/main)" } 2>/dev/null
         [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/main)" || ver="${ver[1,7]}"
         ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZCRVERSION>/$ver}" )
     else
@@ -2029,7 +2029,7 @@ function -zcrasis_set_zui_settings() {
     noglob -zui_std_text_field "report_path" ZUI[my_tfield1_width] ZUI[my_tfield1_start] ZUI[my_tfield1_data] "" "" "" ''
     -zui_std_button "save_report" "$theme[d-save-text-c]" 'print -rl -- "${ZCR_DEBUG_MSGS[@]}" >| "${ZUI[my_tfield1_data]}"; -zui_std_stalog "Report written to: " "\`${ZUI[my_tfield1_data]}'"'"'"; internal=1;'
 
-    reply=( "Send reports to: $theme[d-email-1]psprint${ZUI[FMT_END]}$theme[d-email-2]@${ZUI[FMT_END]}$theme[d-email-3]zdharma.org${ZUI[FMT_END]}. Please include Zshrc if possible."
+    reply=( "Send reports to: $theme[d-email-1]z-shell${ZUI[FMT_END]}$theme[d-email-2]@${ZUI[FMT_END]}$theme[d-email-3]digitalclouds.dev${ZUI[FMT_END]}. Please include Zshrc if possible."
         ""
         "${reply[1]} ${reply[2]}"
         ""
