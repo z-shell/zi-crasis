@@ -38,7 +38,7 @@ FUNCTIONS
  -zcrasis_generator_OPT
  -zcrasis_info
  -zcrasis_process_theme
- -zcrasis-process-zinit-commands
+ -zcrasis-process-zi-commands
  -zcrasis-process-zsh-rc
  -zcrasis_refresh2_all_string
  -zcrasis_set_zui_settings
@@ -51,7 +51,6 @@ FUNCTIONS
  -zcrasis_util_swap
  -zcrasis_verify_tokenization
 AUTOLOAD is-at-least
-AUTOLOAD -zcrasis-process-buffer
 
 DETAILS
 -------
@@ -66,14 +65,12 @@ Has 163 line(s). Calls functions:
  |   |-- -zcrasis_clear_visual_state
  |   |-- -zcrasis_dbg_msg
  |   |-- -zcrasis_dbg_msg_arr
- |   |-- -zcrasis-process-zinit-commands
+ |   |-- -zcrasis-process-zi-commands
  |   |   `-- -zcrasis_dbg_msg
  |   |-- -zcrasis-process-zsh-rc
  |   |-- -zcrasis_refresh2_all_string
  |   |-- -zcrasis_tokenization_failed
  |   |-- -zcrasis-tokenize-zsh-rc
- |   |   `-- -zcrasis-process-buffer
- |   |       `-- -zcrasis_dbg_msg
  |   `-- -zcrasis_verify_tokenization
  |-- -zcrasis_dbg_msg
  |-- -zcrasis_dbg_msg_arr
@@ -90,7 +87,7 @@ Uses feature(s): _autoload_, _wait_
 
 ____
  # Adds plugin to $cmdlist and refreshes the view. So it
- # creates a packet with "zplg load ..." main command.
+ # creates a packet with "zi load ..." main command.
  # Ice command can be added by editing actions.
 ____
 
@@ -108,7 +105,7 @@ Not called by script or any function (may be e.g. a hook, a Zle widget, etc.).
 
 ____
  # Adds snippet to $cmdlist and refreshes the view.
- # So it creates a packet with "zplg snippet ..."
+ # So it creates a packet with "zi snippet ..."
  # main command.
 ____
 
@@ -156,7 +153,7 @@ Not called by script or any function (may be e.g. a hook, a Zle widget, etc.).
 
 ____
  # Removes given entry from $cmdlist and orders full
- # regeneration of document section holding the zinit
+ # regeneration of document section holding the zi
  # invocations (the main view). Basically, there will be
  # one instance of module 2 less (the removed one), and
  # remaining instances will get refreshed.
@@ -210,8 +207,8 @@ Not called by script or any function (may be e.g. a hook, a Zle widget, etc.).
 ____
  # Moves given instance ($2) down, i.e. swaps current and
  # next instance. Using "instance" here means: ZUI's
- # module instance representing single zinit command
- # (possibly preceded with "zinit ice ..." invocation)
+ # module instance representing single zi command
+ # (possibly preceded with "zi ice ..." invocation)
  # by the design of Crasis. Instance = invocation of a
  # generator with "module_idx" "instance_idx" arguments.
  #
@@ -232,8 +229,8 @@ Not called by script or any function (may be e.g. a hook, a Zle widget, etc.).
 ____
  # Moves given instance ($2) up, i.e. swaps current and
  # previous instance. Using "instance" here means: ZUI's
- # module instance representing single zinit command
- # (possibly preceded with "zinit ice ..." invocation)
+ # module instance representing single zi command
+ # (possibly preceded with "zi ice ..." invocation)
  # by the design of Crasis. Instance = invocation of a
  # generator with "module_idx" "instance_idx" arguments.
  #
@@ -241,7 +238,7 @@ ____
  # $2 - instance index
 ____
 
-Has 24 line(s). Calls functions:
+Has 23 line(s). Calls functions:
 
  -zcrasis_action_move_up
  `-- -zcrasis_util_swap
@@ -280,7 +277,7 @@ Not called by script or any function (may be e.g. a hook, a Zle widget, etc.).
 
 ____
  # Ran at startup and after [Reload] button press. Performs
- # full zshrc processing, recognizes other and zinit-related
+ # full zshrc processing, recognizes other and zi-related
  # zshrc parts, forgets user changes because it regenerates
  # the backend model-structure, the $cmdlist array of hashes.
 ____
@@ -291,14 +288,12 @@ Has 57 line(s). Calls functions:
  |-- -zcrasis_clear_visual_state
  |-- -zcrasis_dbg_msg
  |-- -zcrasis_dbg_msg_arr
- |-- -zcrasis-process-zinit-commands
+ |-- -zcrasis-process-zi-commands
  |   `-- -zcrasis_dbg_msg
  |-- -zcrasis-process-zsh-rc
  |-- -zcrasis_refresh2_all_string
  |-- -zcrasis_tokenization_failed
  |-- -zcrasis-tokenize-zsh-rc
- |   `-- -zcrasis-process-buffer
- |       `-- -zcrasis_dbg_msg
  `-- -zcrasis_verify_tokenization
 
 Called by:
@@ -353,7 +348,7 @@ Called by:
 ~~~~~~~~~~~~~~~~
 
 ____
- # Constructs text with zinit commands, optionally
+ # Constructs text with zi commands, optionally
  # including original Zshrc blocks (in order to create
  # full .zshrc). Can skip comments (via $1).
  #
@@ -385,9 +380,8 @@ Called by:
  -zcrasis_action_add_plugin
  -zcrasis_action_add_snippet
  -zcrasis_action_reload
- -zcrasis-process-buffer
  -zcrasis_process_theme
- -zcrasis-process-zinit-commands
+ -zcrasis-process-zi-commands
 
 -zcrasis_dbg_msg_arr
 ~~~~~~~~~~~~~~~~~~~~
@@ -508,13 +502,13 @@ Called by:
  -zcrasis_switch_layout
  -zcrasis_switch_theme
 
--zcrasis-process-zinit-commands
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-zcrasis-process-zi-commands
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ____
- # Processes block with zinit commands established earlier
+ # Processes block with zi commands established earlier
  # in -zcrasis-process-zsh-rc() and generates $cmdlist array
- # which holds serialized hashes of every zinit invocation,
+ # which holds serialized hashes of every zi invocation,
  # mixed-in additional (external) commands, comments.
  #
  # Uses parameters filled by -zcrasis-process-buffer:
@@ -522,9 +516,9 @@ ____
  # - $ZCR_PB_SPACES - spaces in front of each token, +1 at the end
 ____
 
-Has 141 line(s). Calls functions:
+Has 139 line(s). Calls functions:
 
- -zcrasis-process-zinit-commands
+ -zcrasis-process-zi-commands
  `-- -zcrasis_dbg_msg
 
 Called by:
@@ -537,7 +531,7 @@ Called by:
 ____
  # Parses tokens of the loaded zshrc and detects:
  # - functions
- # - block preceding zinit commands
+ # - block preceding zi commands
  # - block with those commands
  # - block following them
  #
@@ -658,11 +652,7 @@ ____
  # in separate file "-zcrasis-process-buffer".
 ____
 
-Has 1 line(s). Calls functions:
-
- -zcrasis-tokenize-zsh-rc
- `-- -zcrasis-process-buffer
-     `-- -zcrasis_dbg_msg
+Has 1 line(s). Doesn't call other functions.
 
 Called by:
 
@@ -673,7 +663,7 @@ Called by:
 
 ____
  # Updates ICE entry in given ($3) command packet. There
- # is single command packet per zinit invocation and it
+ # is single command packet per zi invocation and it
  # contains main command, optionally ICE command, and also
  # optionally a preceding comment.
  #
@@ -693,7 +683,7 @@ Called by:
 
 ____
  # Updates main entry in given ($3) command packet. There
- # is single command packet per zinit invocation and it
+ # is single command packet per zi invocation and it
  # contains main command, optionally ICE command, and also
  # optionally a preceding comment.
  #
@@ -762,29 +752,4 @@ Has 56 line(s). Doesn't call other functions.
 Called by:
 
  -zcrasis_set_zui_settings
-
--zcrasis-process-buffer
-~~~~~~~~~~~~~~~~~~~~~~~
-
-____
- # Input:
- # $1 - text to process
- #
- # Output:
- # ZCR_PB_WORDS - split of "$1" into shell words; array
- # ZCR_PB_WORDS_BEGINNINGS - indexes of first letters of corresponding words in ZCR_PB_WORDS
- # ZCR_PB_SPACES - white spaces before corresponding words in ZCR_PB_WORDS
- # ZCR_PB_ALL - spaces and words, together
-____
-
-Has 140 line(s). Calls functions:
-
- -zcrasis-process-buffer
- `-- -zcrasis_dbg_msg
-
-Uses feature(s): _setopt_
-
-Called by:
-
- -zcrasis-tokenize-zsh-rc
 

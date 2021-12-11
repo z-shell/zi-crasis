@@ -13,9 +13,6 @@ if [[ $PMSPEC != *f* ]] {
 
 typeset -g ZCRASIS_REPO_DIR="${0:h}"
 
-#0="${(%):-%N}" # this gives immunity to functionargzero being unset
-#export ZCRASIS_REPO_DIR="${0%/*}"
-
 if [[ "${+functions[-zui_std_cleanup]}" = "0" ]]; then
   echo "Crasis uses ZUI plugin, please load https://github.com/z-shell/zui/ with your plugin manager, or source it."
 fi
