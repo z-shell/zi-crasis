@@ -1,0 +1,1205 @@
+'\" t
+.\"     Title: crasis
+.\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 12/11/2021
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "CRASIS" "1" "12/11/2021" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+crasis \- a shell script
+.SH "SYNOPSIS"
+.sp
+Documentation automatically generated with \(oqzshelldoc\(cq
+.SH "FUNCTIONS"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ \-zcrasis_action_add_plugin
+ \-zcrasis_action_add_snippet
+ \-zcrasis_action_compact_mode
+ \-zcrasis_action_debug_view
+ \-zcrasis_action_delete
+ \-zcrasis_action_delete_mode
+ \-zcrasis_action_edit_mode
+ \-zcrasis_action_move_down
+ \-zcrasis_action_move_up
+ \-zcrasis_action_options_view
+ \-zcrasis_action_preview
+ \-zcrasis_action_reload
+ \-zcrasis_action_save
+ \-zcrasis_action_save_options
+ \-zcrasis_clear_visual_state
+ \-zcrasis_compose
+ \-zcrasis_dbg_msg
+ \-zcrasis_dbg_msg_arr
+ \-zcrasis_generator_0
+ \-zcrasis_generator_A
+ \-zcrasis_generator_B
+ \-zcrasis_generator_DBG
+ \-zcrasis_generator_OPT
+ \-zcrasis_info
+ \-zcrasis_process_theme
+ \-zcrasis\-process\-zi\-commands
+ \-zcrasis\-process\-zsh\-rc
+ \-zcrasis_refresh2_all_string
+ \-zcrasis_set_zui_settings
+ \-zcrasis_switch_layout
+ \-zcrasis_switch_theme
+ \-zcrasis_tokenization_failed
+ \-zcrasis\-tokenize\-zsh\-rc
+ \-zcrasis_update_ice_cmd
+ \-zcrasis_update_main_cmd
+ \-zcrasis_util_swap
+ \-zcrasis_verify_tokenization
+AUTOLOAD is\-at\-least
+.fi
+.if n \{\
+.RE
+.\}
+.SH "DETAILS"
+.SS "Script Body"
+.sp
+Has 163 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Script\-Body
+|\-\- \-zcrasis_action_reload
+|\ \&\ \& |\-\- \-zcrasis_clear_visual_state
+|\ \&\ \& |\-\- \-zcrasis_dbg_msg
+|\ \&\ \& |\-\- \-zcrasis_dbg_msg_arr
+|\ \&\ \& |\-\- \-zcrasis\-process\-zi\-commands
+|\ \&\ \& |\ \&\ \& `\-\- \-zcrasis_dbg_msg
+|\ \&\ \& |\-\- \-zcrasis\-process\-zsh\-rc
+|\ \&\ \& |\-\- \-zcrasis_refresh2_all_string
+|\ \&\ \& |\-\- \-zcrasis_tokenization_failed
+|\ \&\ \& |\-\- \-zcrasis\-tokenize\-zsh\-rc
+|\ \&\ \& `\-\- \-zcrasis_verify_tokenization
+|\-\- \-zcrasis_dbg_msg
+|\-\- \-zcrasis_dbg_msg_arr
+|\-\- \-zcrasis_process_theme
+|\ \&\ \& |\-\- \-zcrasis_dbg_msg
+|\ \&\ \& `\-\- \-zcrasis_dbg_msg_arr
+`\-\- \-zcrasis_set_zui_settings
+    `\-\- is\-at\-least
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Uses feature(s): \fIautoload\fR, \fIwait\fR
+.SS "\-zcrasis_action_add_plugin"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Adds plugin to $cmdlist and refreshes the view\&. So it
+# creates a packet with "zi load \&.\&.\&." main command\&.
+# Ice command can be added by editing actions\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 18 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_add_plugin
+|\-\- \-zcrasis_clear_visual_state
+|\-\- \-zcrasis_dbg_msg
+`\-\- \-zcrasis_refresh2_all_string
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_add_snippet"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Adds snippet to $cmdlist and refreshes the view\&.
+# So it creates a packet with "zi snippet \&.\&.\&."
+# main command\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 18 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_add_snippet
+|\-\- \-zcrasis_clear_visual_state
+|\-\- \-zcrasis_dbg_msg
+`\-\- \-zcrasis_refresh2_all_string
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_compact_mode"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Switches the entry list to compact\-mode\&. In this mode,
+# only a single line per plugin/snippet/etc\&. is displayed\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 8 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_compact_mode
+`\-\- \-zcrasis_refresh2_all_string
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_debug_view"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Enters or leaves debug view\&. Plugin\-list view is muted
+# by setting module 2 factor to 0 \-\ \&factor is the number
+# of instances of a module to create, i\&.e\&. number of calls
+# to module\*(Aqs generator\&. Debug module (#4) obtains factor 1\&.
+# On disable, normal factors are restored\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 35 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_delete"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Removes given entry from $cmdlist and orders full
+# regeneration of document section holding the zi
+# invocations (the main view)\&. Basically, there will be
+# one instance of module 2 less (the removed one), and
+# remaining instances will get refreshed\&.
+#
+# $1 \- widget id
+# $2 \- module\*(Aqs index
+# $3 \- module\*(Aqs instance index
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 15 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_delete
+`\-\- \-zcrasis_clear_visual_state
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_delete_mode"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Enables ability to delete entries \- adds [X] button
+# to each plugin, snippet, external command, etc\&. (main
+# view)\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 9 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_delete_mode
+`\-\- \-zcrasis_refresh2_all_string
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_edit_mode"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Enables ability to edit entries \- strings with plugin name,
+# snippet url, etc\&. turn into text fields for manual editing\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 8 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_edit_mode
+`\-\- \-zcrasis_refresh2_all_string
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_move_down"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Moves given instance ($2) down, i\&.e\&. swaps current and
+# next instance\&. Using "instance" here means: ZUI\*(Aqs
+# module instance representing single zi command
+# (possibly preceded with "zi ice \&.\&.\&." invocation)
+# by the design of Crasis\&. Instance = invocation of a
+# generator with "module_idx" "instance_idx" arguments\&.
+#
+# $1 \- module index (will be 2)
+# $2 \- instance index
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 24 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_move_down
+`\-\- \-zcrasis_util_swap
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_move_up"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Moves given instance ($2) up, i\&.e\&. swaps current and
+# previous instance\&. Using "instance" here means: ZUI\*(Aqs
+# module instance representing single zi command
+# (possibly preceded with "zi ice \&.\&.\&." invocation)
+# by the design of Crasis\&. Instance = invocation of a
+# generator with "module_idx" "instance_idx" arguments\&.
+#
+# $1 \- module index (will be 2)
+# $2 \- instance index
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 23 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_move_up
+`\-\- \-zcrasis_util_swap
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_options_view"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Enters or leaves options alternate\-view\&. It basically
+# sets option module\*(Aqs instance to be created, once (when
+# entering) \- by changing the module factor\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 21 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_preview"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Enters or leaves preview alternate\-view\&. It basically
+# sets preview module\*(Aqs instance to be created, once\&.
+# At the same time, the plugin\-list module is set to 0
+# instances\&. Number of instances is the "module factor"\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 22 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_reload"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Ran at startup and after [Reload] button press\&. Performs
+# full zshrc processing, recognizes other and zi\-related
+# zshrc parts, forgets user changes because it regenerates
+# the backend model\-structure, the $cmdlist array of hashes\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 57 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_reload
+|\-\- \-zcrasis_clear_visual_state
+|\-\- \-zcrasis_dbg_msg
+|\-\- \-zcrasis_dbg_msg_arr
+|\-\- \-zcrasis\-process\-zi\-commands
+|\ \&\ \& `\-\- \-zcrasis_dbg_msg
+|\-\- \-zcrasis\-process\-zsh\-rc
+|\-\- \-zcrasis_refresh2_all_string
+|\-\- \-zcrasis_tokenization_failed
+|\-\- \-zcrasis\-tokenize\-zsh\-rc
+`\-\- \-zcrasis_verify_tokenization
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Script\-Body
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_action_save"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Called when [Save] pressed\&. Composes full \&.zshrc,
+# performs the save, outputs status message\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 5 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_save
+`\-\- \-zcrasis_compose
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_action_save_options"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Stores current settings to $ZCRASIS_REPO_DIR/crasis\&.conf\&.
+# Outputs status message\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 6 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_clear_visual_state"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Clears generators\*(Aq working variables to trigger refresh
+# from backend, model\-structures (like $cmdlist)\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 26 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_add_plugin
+\-zcrasis_action_add_snippet
+\-zcrasis_action_delete
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_compose"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Constructs text with zi commands, optionally
+# including original Zshrc blocks (in order to create
+# full \&.zshrc)\&. Can skip comments (via $1)\&.
+#
+# $1 \- zero or 1 \- whether to include comments
+# $2 \- zero or 1 \- whether to generate complete zshrc
+#
+# $reply \- lines of created code
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 115 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_save
+\-zcrasis_generator_B
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_dbg_msg"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Append message to the debug view
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 1 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Script\-Body
+\-zcrasis_action_add_plugin
+\-zcrasis_action_add_snippet
+\-zcrasis_action_reload
+\-zcrasis_process_theme
+\-zcrasis\-process\-zi\-commands
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_dbg_msg_arr"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Append multiple messages to the debug view
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 1 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Script\-Body
+\-zcrasis_action_reload
+\-zcrasis_process_theme
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_generator_0"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# ZUI generator that creates top menu (its hypertext)\&.
+# The menu can differ depending on current view mode
+# (normal, preview, debug)\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 76 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_generator_A"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# ZUI generator that creates document block for each plugin,
+# snippet or other command\&. This is module #2, each document
+# block is an instance of this module (separated by blank
+# lines horizontally, by ZUI normal operation)\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 196 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_generator_A
+|\-\- \-zcrasis_update_ice_cmd
+`\-\- \-zcrasis_update_main_cmd
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Uses feature(s): \fIeval\fR
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_generator_B"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# ZUI generator that creates preview text\&. This is module 3\&.
+# There is 0 or 1 instance of this module, depending on chosen
+# view\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 35 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_generator_B
+`\-\- \-zcrasis_compose
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_generator_DBG"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# ZUI generator that creates debug\-report text\&. This is module 4\&.
+# There is 0 or 1 instance of this module, depending on chosen
+# view\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 15 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_generator_OPT"
+.sp
+Has 48 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Uses feature(s): \fIeval\fR
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_info"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Shows description (in status window) of the selected plugin
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 3 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_process_theme"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Theme file contains a little complex data and
+# this functions converts it to be ready to use
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 135 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_process_theme
+|\-\- \-zcrasis_dbg_msg
+`\-\- \-zcrasis_dbg_msg_arr
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Uses feature(s): \fIsource\fR
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Script\-Body
+\-zcrasis_switch_layout
+\-zcrasis_switch_theme
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis\-process\-zi\-commands"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Processes block with zi commands established earlier
+# in \-zcrasis\-process\-zsh\-rc() and generates $cmdlist array
+# which holds serialized hashes of every zi invocation,
+# mixed\-in additional (external) commands, comments\&.
+#
+# Uses parameters filled by \-zcrasis\-process\-buffer:
+# \- $ZCR_PB_WORDS \- tokens
+# \- $ZCR_PB_SPACES \- spaces in front of each token, +1 at the end
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 139 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis\-process\-zi\-commands
+`\-\- \-zcrasis_dbg_msg
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis\-process\-zsh\-rc"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Parses tokens of the loaded zshrc and detects:
+# \- functions
+# \- block preceding zi commands
+# \- block with those commands
+# \- block following them
+#
+# Uses parameters filled by \-zcrasis\-process\-buffer:
+# \- $ZCR_PB_WORDS \- tokens
+# \- $ZCR_PB_SPACES \- spaces in front of each token, +1 at the end
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 160 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_refresh2_all_string"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Returns string that when passed to ZUI causes to regenerate
+# all instances of module 2 and module 1 (the menu bar)\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 8 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_add_plugin
+\-zcrasis_action_add_snippet
+\-zcrasis_action_compact_mode
+\-zcrasis_action_delete_mode
+\-zcrasis_action_edit_mode
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_set_zui_settings"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# If theme provides palette\-string, it is
+# applied to ZUI settings of this application
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 36 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_set_zui_settings
+`\-\- is\-at\-least
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Uses feature(s): \fIautoload\fR, \fIis\-at\-least\fR
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Script\-Body
+\-zcrasis_switch_layout
+\-zcrasis_switch_theme
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_switch_layout"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Switches layout during operation of Crasis (not
+# at startup)\&.
+#
+# $1 \- layout name (not path, no \&.cr\-theme extension)
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 4 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_switch_layout
+|\-\- \-zcrasis_process_theme
+|\ \&\ \& |\-\- \-zcrasis_dbg_msg
+|\ \&\ \& `\-\- \-zcrasis_dbg_msg_arr
+`\-\- \-zcrasis_set_zui_settings
+    `\-\- is\-at\-least
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_switch_theme"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Switches theme during operation of Crasis (not
+# at startup)\&.
+#
+# $1 \- theme name (not path, no \&.cr\-theme extension)
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 4 line(s)\&. Calls functions:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_switch_theme
+|\-\- \-zcrasis_process_theme
+|\ \&\ \& |\-\- \-zcrasis_dbg_msg
+|\ \&\ \& `\-\- \-zcrasis_dbg_msg_arr
+`\-\- \-zcrasis_set_zui_settings
+    `\-\- is\-at\-least
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Not called by script or any function (may be e\&.g\&. a hook, a Zle widget, etc\&.)\&.
+.SS "\-zcrasis_tokenization_failed"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Outputs a message that zshrc didn\*(Aqt parse, and
+# includes information what can be a possible cause\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 20 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis\-tokenize\-zsh\-rc"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Runs \-zcrasis\-process\-buffer() on $zshrc (containing the loaded
+# \&.zshrc file)\&. The *\-process\-buffer() is a general function that
+# exists in other projects, is an autoload function, and is kept
+# in separate file "\-zcrasis\-process\-buffer"\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 1 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_update_ice_cmd"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Updates ICE entry in given ($3) command packet\&. There
+# is single command packet per zi invocation and it
+# contains main command, optionally ICE command, and also
+# optionally a preceding comment\&.
+#
+# $1 \- key to update in the ice command
+# $2 \- data to store under the key
+# $3 \- index of command pack to alter
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 24 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_generator_A
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_update_main_cmd"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Updates main entry in given ($3) command packet\&. There
+# is single command packet per zi invocation and it
+# contains main command, optionally ICE command, and also
+# optionally a preceding comment\&.
+#
+# $1 \- key to update in the main command
+# $2 \- data to store under the key
+# $3 \- index of command pack to alter
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 17 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_generator_A
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_util_swap"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Swaps two variables given by name\&. Uses (P) substitution
+# flag, can swap e\&.g\&. hash entries\&. For example:
+#   local \-A hash_arr=( a b c d )
+#   \-zcrasis_util_swap \*(Aqhash_arr[a]\*(Aq \*(Aqhash_arr[b]\*(Aq
+#
+# $1 \- name of first variable to swap
+# $2 \- name of second variable to swap
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 14 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_move_down
+\-zcrasis_action_move_up
+.fi
+.if n \{\
+.RE
+.\}
+.SS "\-zcrasis_verify_tokenization"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# To large extent verifies if tokenization was correct\&.
+# Also removes the test\-tokens added to input zshrc\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 13 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_action_reload
+.fi
+.if n \{\
+.RE
+.\}
+.SS "is\-at\-least"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#
+# Test whether $ZSH_VERSION (or some value of your choice, if a second argument
+# is provided) is greater than or equal to x\&.y\&.z\-r (in argument one)\&. In fact,
+# it\*(Aqll accept any dot/dash\-separated string of numbers as its second argument
+# and compare it to the dot/dash\-separated first argument\&. Leading non\-number
+# parts of a segment (such as the "zefram" in 3\&.1\&.2\-zefram4) are not considered
+# when the comparison is done; only the numbers matter\&. Any left\-out segments
+# in the first argument that are present in the version string compared are
+# considered as zeroes, eg 3 == 3\&.0 == 3\&.0\&.0 == 3\&.0\&.0\&.0 and so on\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Has 56 line(s)\&. Doesn\(cqt call other functions\&.
+.sp
+Called by:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-zcrasis_set_zui_settings
+.fi
+.if n \{\
+.RE
+.\}

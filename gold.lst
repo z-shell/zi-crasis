@@ -4,8 +4,9 @@ mollifier/anyframe
 mollifier/cd-gitroot
 supercrabtree/k
 z-shell/F-Sy-H
-z-shell/H-W-MW
+z-shell/H-S-MW
 z-shell/zconvey
+z-shell/zredis
 zsh-users/zsh-autosuggestions
 zsh-users/zsh-completions
 zsh-users/zsh-history-substring-search

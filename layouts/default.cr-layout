@@ -30,33 +30,33 @@ w_plugin_item_short=(
 
 # cdreplay in the listing
 
-w_cdreplay_item_long=(
+w_cdreplay_item_long=( 
     "$num $w_up $w_down cdreplay${w_q:+ -q}"
     "$w_delete$w_disable"
 )
 
-w_cdreplay_item_short=(
+w_cdreplay_item_short=( 
     "$num $w_up $w_down cdreplay${w_q:+ -q}"
 )
 
 # cdclear in the listing
 
-w_cdclear_item_long=(
+w_cdclear_item_long=( 
     "$num $w_up $w_down cdclear${w_q:+ -q}"
     "$w_delete$w_disable"
 )
 
-w_cdclear_item_short=(
+w_cdclear_item_short=( 
     "$num $w_up $w_down cdclear${w_q:+ -q}"
 )
 
 # regular command in listing
 
-w_other_item_long=(
+w_other_item_long=( 
     "$num $w_up $w_down $text"
     "$w_delete$w_disable"
 )
 
-w_other_item_short=(
+w_other_item_short=( 
     "$num $w_up $w_down $text"
 )
