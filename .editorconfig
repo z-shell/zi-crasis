@@ -13,3 +13,7 @@ insert_final_newline = true
 
 [**.{md,rst}]
 trim_trailing_whitespace = false
+
+[Makefile,*.mk,*.mak,*.mk.in,*.mak.in]
+indent_style = tab
+indent_size = 4

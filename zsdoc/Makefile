@@ -29,5 +29,3 @@ clean:
 	rm -rf man pdf data
 
 .PHONY: man pdf clean
-
-# vim:noet:sts=8:ts=8

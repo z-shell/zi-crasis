@@ -16,3 +16,11 @@ test/-zcrasis-process-buffer
 test/crasis
 test/zsdoc
 test/_test*/*.test
+
+# A popular plugin manager's files
+._zi
+._zinit
+._zplugin
+.zi_lastupd
+.zinit_lastupd
+.zplugin_lstupd
