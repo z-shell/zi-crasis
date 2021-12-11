@@ -10,11 +10,11 @@ test:
 	make VERBOSE=$(VERBOSE) NODIFF=$(NODIFF) DEBUG=$(DEBUG) -C test test
 
 doc: functions/crasis
-	rm -rf zsdoc/data zsdoc/*.adoc
+	rm -rf docs/zsdoc/data zsdoc/*.adoc
 	zsd -v --cignore '(\#*FUNCTION:*{{{*|\#[[:space:]]#}}}*)' --fpath `pwd` functions/crasis
 
 clean:
 	rm -f -- zi-crasis.plugin.zsh.zwc functions/crasis.zwc functions/-zcrasis-process-buffer.zwc
-	rm -rf zsdoc/data
+	rm -rf docs/zsdoc/data
 
 .PHONY: all clean
