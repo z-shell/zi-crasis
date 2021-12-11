@@ -4,6 +4,10 @@
 #
 # to ~/.zshrc.
 #
+# Standarized way of handling finding plugin dir, regardless of functionargzero and posixargzero,
+# and with an option for a plugin manager to alter the plugin directory (i.e. set ZERO parameter)
+# https://github.com/z-shell/zi/wiki/Zsh-Plugin-Standard
+
 0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
 0="${${(M)0:#/*}:-$PWD/$0}"
 
