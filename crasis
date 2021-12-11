@@ -30,15 +30,15 @@ ZUI[log_time_format]="[%H:%M] "
 
 # Initial debug message
 -zcrasis_dbg_msg "ZSH version: $ZSH_VERSION ($ZSH_PATCHLEVEL), machine: $CPUTYPE $VENDOR $OSTYPE, LANG: $LANG"
-if [[ ${+ZPLGM} = 1 ]]; then
-    -zcrasis_dbg_msg "ZI version: <ZPLGVERSION>, ZI-Crasis version: <ZCRVERSION>"
-    -zcrasis_dbg_msg "ZI BIN_DIR: ${ZPLGM[BIN_DIR]/$HOME/~}, HOME_DIR: ${ZPLGM[HOME_DIR]/$HOME/~}, PLUGINS_DIR: ${ZPLGM[PLUGINS_DIR]/$HOME/~}, COMPLETIONS_DIR: ${ZPLGM[COMPLETIONS_DIR]/$HOME/~}"
+if [[ ${+ZI} = 1 ]]; then
+    -zcrasis_dbg_msg "ZI version: <ZIVERSION>, ZI-Crasis version: <ZCRVERSION>"
+    -zcrasis_dbg_msg "ZI BIN_DIR: ${ZI[BIN_DIR]/$HOME/~}, HOME_DIR: ${ZI[HOME_DIR]/$HOME/~}, PLUGINS_DIR: ${ZI[PLUGINS_DIR]/$HOME/~}, COMPLETIONS_DIR: ${ZI[COMPLETIONS_DIR]/$HOME/~}"
 else
     -zcrasis_dbg_msg "${ZUI[RED]}ZI not loaded${ZUI[FMT_END]}"
 fi
 
 -zcrasis_dbg_msg ""
--zcrasis_dbg_msg_arr "Active plugins:" "${ZPLG_REGISTERED_PLUGINS[@]/(#s)/ }"
+-zcrasis_dbg_msg_arr "Active plugins:" "${ZI_REGISTERED_PLUGINS[@]/(#s)/ }"
 -zcrasis_dbg_msg ""
 
 #
@@ -95,21 +95,21 @@ local -a chosen_plugins chosen_descriptions
 
 local -a ice_order nval_ices
 ice_order=(
-    wait lucid silent service svn proto from teleid as id-as depth cloneopts
-    ver has if load unload blockf pick bpick src notify mv cp atinit atclone
-    atload atpull make run-atpull nocd cloneonly trackbinds bindmap multisrc
-    compile nocompile nocompletions reset-prompt
-    # Include all additional ices – after
-    # stripping them from the possible: ''
-    ${(@s.|.)${ZPLG_EXTS[ice-mods]//\'\'/}}
+  wait lucid silent service svn proto from teleid as id-as depth cloneopts
+  ver has if load unload blockf pick bpick src notify mv cp atinit atclone
+  atload atpull make run-atpull nocd cloneonly trackbinds bindmap multisrc
+  compile nocompile nocompletions reset-prompt
+  # Include all additional ices – after
+  # stripping them from the possible: ''
+  ${(@s.|.)${ZI_EXTS[ice-mods]//\'\'/}}
 )
 nval_ices=(
-        blockf silent lucid trackbinds cloneonly nocd run-atpull
-        nocompletions svn
-        # Include only those additional ices,
-        # don't have the '' in their name, i.e.
-        # aren't designed to hold value
-        ${(@)${(@s.|.)ZPLG_EXTS[ice-mods]}:#*\'\'*}
+  blockf silent lucid trackbinds cloneonly nocd run-atpull
+  nocompletions svn
+  # Include only those additional ices,
+  # don't have the '' in their name, i.e.
+  # aren't designed to hold value
+  ${(@)${(@s.|.)ZI_EXTS[ice-mods]}:#*\'\'*}
 )
 
 
@@ -125,7 +125,7 @@ local -a w_other_item_long w_other_item_short
 # Document to process
 local zshrc_path="${1:-${ZDOTDIR:-$HOME}/.zshrc}" zshrc
 
-# The bits returned by -zplg-process-buffer
+# The bits returned by -zi-process-buffer
 local token prev_token spaces prev_spaces next_token next_spaces
 
 # Command detection
@@ -641,7 +641,7 @@ function -zcrasis_set_zui_settings() {
             at_command=0
             # ZI call not in function
             if [[ "$cur_fun" -eq 0 && "$next_token" != "()"(|$'\r') && "$fun_stack_depths[-1]" -le "0" ]]; then
-                if [[ "$token" = (zplugin|zplg|zi) || ( "$token" = ":" && "$next_token" = (zplugin|zplg|zi) ) ]]; then
+                if [[ "$token" = (zinit|zi) || ( "$token" = ":" && "$next_token" = (zinit|zi) ) ]]; then
                     in_zi=1
                     (( was_zi == 0 )) && {
                         for (( j=i-1; j >= 1; j -- )); do
@@ -790,9 +790,9 @@ function -zcrasis_set_zui_settings() {
             if [[ "$spaces" != [[:blank:]]#"\\"(|$'\r')$'\n'[[:blank:]]# ]]; then
                 in_zi=1
 
-                if [[ "${cmd3[c]}" = (zplugin|zi) && "${cmd3[sub]}" = "ice" ]]; then
+                if [[ "${cmd3[c]}" = (zinit|zi) && "${cmd3[sub]}" = "ice" ]]; then
                     cmdlist[coidx+1]="${(j: :)${(qkv)cmd3[@]}}"
-                elif [[ "${cmd3[c]}" = (zplugin|zi) && "${cmd3[sub]}" != "ice" ]]; then
+                elif [[ "${cmd3[c]}" = (zinit|zi) && "${cmd3[sub]}" != "ice" ]]; then
                     cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
                     coidx+=3
                 else
@@ -818,13 +818,12 @@ function -zcrasis_set_zui_settings() {
                 cmd3[comment]="$spaces$token"
             fi
         elif (( in_zi == 1 )); then
-            [[ "$token" = (zplugin|zplg|zi) ]] && "${cmd3[c]}" = (zplugin|zi) || cmd3[c]="$token"
+            [[ "$token" = (zinit|zi) ]] && "${cmd3[c]}" = (zinit|zi) || cmd3[c]="$token"
             # Postpone current state to next token
             [[ "$token" = ":" ]] && { cmd3[disabled]=1; (( in_zi -- )); }
         elif (( in_zi == 2 )); then
-            if [[ "${cmd3[c]}" = (zplugin|zi) ]]; then
-                [[ "$token" = (ice|load|light|snippet|cdclear|
-                                cdreplay|env-whitelist|create)
+            if [[ "${cmd3[c]}" = (zinit|zi) ]]; then
+                [[ "$token" = (ice|load|light|snippet|cdclear|cdreplay|env-whitelist|create)
                 ]] && {
                     cmd3[sub]="$token"
                     # We get another ice-command while a previous ice-command
@@ -832,8 +831,7 @@ function -zcrasis_set_zui_settings() {
                     [[ "$token" = ice && -n "${cmdlist[coidx+1]}" ]] && \
                         coidx+=3
                     ((1))
-                } || \
-                    { cmd3[sub]="unkn"; cmd3[unkn]="$token"; }
+                } || { cmd3[sub]="unkn"; cmd3[unkn]="$token"; }
             else
                 cmd3[arg_1]="$token"
                 cmd3[spaces_1]="$spaces"
@@ -912,11 +910,11 @@ function -zcrasis_set_zui_settings() {
     done
 
     if [[ -n "${cmd3[c]}" ]];then
-        if [[ "${cmd3[c]}" = (zplugin|zi) && "${cmd3[sub]}" = "ice" ]]; then
+        if [[ "${cmd3[c]}" = (zinit|zi) && "${cmd3[sub]}" = "ice" ]]; then
             cmdlist[coidx+1]="${(j: :)${(qkv)cmd3[@]}}"
-        elif [[ "${cmd3[c]}" = (zplugin|zi) && "${cmd3[sub]}" != "ice" ]]; then
+        elif [[ "${cmd3[c]}" = (zinit|zi) && "${cmd3[sub]}" != "ice" ]]; then
             cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
-        elif [[ "${cmd3[c]}" = (zplugin|zi) ]]; then
+        elif [[ "${cmd3[c]}" = (zinit|zi) ]]; then
             cmdlist[coidx+2]="${(j: :)${(qkv)cmd3[@]}}"
         fi
         -zcrasis_dbg_msg "ZI block in zshrc has $(( (coidx + 2) / 3 )) commands (not counting \`zi ice ...')"
@@ -963,8 +961,7 @@ function -zcrasis_set_zui_settings() {
 # $1 - module index (will be 2)
 # $2 - instance index
 -zcrasis_action_move_up() {
-    local mod="$1" ice="$2" t
-
+    local mod="$1" ice="$2"
     local -a cmd1 cmd2
 
     (( (ice-1-1)*3+1 > ${#cmdlist} || (ice-1)*3 > ${#cmdlist} || (ice-1)*3+1 > ${#cmdlist} || ice*3 > ${#cmdlist} )) && return 1
@@ -1111,12 +1108,12 @@ function -zcrasis_set_zui_settings() {
         lines=( "${(f@)zshrc}" )
         ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZSHRCLINES>/${#lines}}" )
 
-        { local ver="$(<${ZPLGM[BIN_DIR]}/.git/refs/heads/master)" } 2>/dev/null
-        [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/master)" || ver="${ver[1,7]}"
-        ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZPLGVERSION>/$ver}" )
+        { local ver="$(<${ZI[BIN_DIR]}/.git/refs/heads/main)" } 2>/dev/null
+        [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/main)" || ver="${ver[1,7]}"
+        ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZIVERSION>/$ver}" )
 
-        { local ver="$(<${ZPLGM[PLUGINS_DIR]}/zdharma---zi-crasis/.git/refs/heads/master)" } 2>/dev/null
-        [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/master)" || ver="${ver[1,7]}"
+        { local ver="$(<${ZI[PLUGINS_DIR]}/zdharma---zi-crasis/.git/refs/heads/main)" } 2>/dev/null
+        [[ -z "$ver" ]] && ver="unknown (no .git/refs/heads/main)" || ver="${ver[1,7]}"
         ZCR_DEBUG_MSGS=( "${ZCR_DEBUG_MSGS[@]/<ZCRVERSION>/$ver}" )
     else
         -zui_std_set_mod_factor 2 $(( ${#cmdlist} / 3 ))
@@ -1315,7 +1312,7 @@ function -zcrasis_set_zui_settings() {
 
         # COMMAND
         if [[ "${#main_cmd}" -ge 1 ]]; then
-            if [[ "${main_cmd[c]}" = (zplugin|zplg|zi) ]]; then
+            if [[ "${main_cmd[c]}" = (zinit|zi) ]]; then
                 (( ice_cmd[disabled] || main_cmd[disabled] )) && buf+=": "
                 if [[ "${main_cmd[sub]}" = (light|load|snippet|cdreplay|cdclear) ]]; then
                     buf+="zi ${main_cmd[sub]}"
@@ -1474,7 +1471,7 @@ function -zcrasis_set_zui_settings() {
 # }}}
 # FUNCTION: -zcrasis_action_add_snippet {{{
 # Adds snippet to $cmdlist and refreshes the view.
-# So it creates a packet with "zplg snippet ..."
+# So it creates a packet with "zi snippet ..."
 # main command.
 -zcrasis_action_add_snippet() {
     local url="${ZUI[my_tfield3_data]}"
@@ -1499,7 +1496,7 @@ function -zcrasis_set_zui_settings() {
 # }}}
 # FUNCTION: -zcrasis_action_add_plugin {{{
 # Adds plugin to $cmdlist and refreshes the view. So it
-# creates a packet with "zplg load ..." main command.
+# creates a packet with "zi load ..." main command.
 # Ice command can be added by editing actions.
 -zcrasis_action_add_plugin() {
     local url="${ZUI[my_tfield3_data]}"

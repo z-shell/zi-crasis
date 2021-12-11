@@ -9,7 +9,7 @@
 export ZCRASIS_REPO_DIR="${0%/*}"
 
 if [[ "${+functions[-zui_std_cleanup]}" = "0" ]]; then
-    echo "Crasis uses ZUI plugin, please load https://github.com/z-shell/zui/ with your plugin manager, or source it."
+  echo "Crasis uses ZUI plugin, please load https://github.com/z-shell/zui/ with your plugin manager, or source it."
 fi
 
 #
@@ -19,7 +19,7 @@ fi
 #
 
 if [[ -z "$ZPLG_CUR_PLUGIN" && "${fpath[(r)$ZCRASIS_REPO_DIR]}" != $ZCRASIS_REPO_DIR ]]; then
-    fpath+=( "$ZCRASIS_REPO_DIR" )
+  fpath+=( "$ZCRASIS_REPO_DIR" )
 fi
 
 [[ -z "${fg_bold[green]}" ]] && builtin autoload -Uz colors && colors
