@@ -1,3 +1,5 @@
+# -*- mode: zsh; sh-indentation: 2; indent-tabs-mode: nil; sh-basic-offset: 2; -*-
+# vim: ft=zsh sw=2 ts=2 et
 #
 # No plugin manager is needed to use this file. All that is needed is adding:
 #   source {where-crasis-is}/zi-crasis.plugin.zsh
@@ -27,5 +29,3 @@ autoload -- crasis -zcrasis-process-buffer
 
 zle -N crasis
 bindkey "^O^K" crasis
-
-# vim:ft=zsh
